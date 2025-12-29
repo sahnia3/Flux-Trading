@@ -42,6 +42,7 @@ const intervals = [
   { label: "1D", resolution: "30", rangeSeconds: 1 * 24 * 60 * 60 },
   { label: "1W", resolution: "60", rangeSeconds: 7 * 24 * 60 * 60 },
   { label: "1M", resolution: "D", rangeSeconds: 30 * 24 * 60 * 60 },
+  { label: "YTD", resolution: "D", rangeSeconds: undefined },
   { label: "1Y", resolution: "W", rangeSeconds: 365 * 24 * 60 * 60 },
   { label: "All", resolution: "M", rangeSeconds: undefined },
 ];
@@ -58,6 +59,7 @@ export default function AssetPage() {
   const [showRSI, setShowRSI] = useState(false); // placeholder
   const [company, setCompany] = useState<CompanyInfo | null>(null);
   const [companyError, setCompanyError] = useState<string | null>(null);
+  const [showLearn, setShowLearn] = useState(false);
 
   useEffect(() => {
     if (!symbol) return;
@@ -114,6 +116,24 @@ export default function AssetPage() {
   }, [symbol]);
 
   const up = (ticker?.change_24h ?? 0) >= 0;
+  const statusText = () => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay();
+    const estHour = (utcHour - 5 + 24) % 24; // rough EST
+    const open = utcDay >= 1 && utcDay <= 5 && estHour >= 9 && estHour < 16;
+    return open ? "Market Open" : "Closed/Pre-market";
+  };
+
+  const timeframeRangeSeconds =
+    interval.label === "YTD"
+      ? Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 1000)
+      : interval.rangeSeconds;
+
+  const related =
+    company?.profile?.industry && company.profile.industry !== ""
+      ? [company.profile.industry, "Sector ETF", "Peer stock"]
+      : ["Tech", "AI", "Mega-cap"];
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -125,7 +145,7 @@ export default function AssetPage() {
             </p>
             <h1 className="text-3xl font-semibold text-slate-50">{symbol}</h1>
             <p className="text-sm text-slate-400">
-              Live via WebSocket · Status: {status}
+              Live via WebSocket · Feed: {status} · Market: {statusText()}
             </p>
           </div>
           <Link
@@ -179,11 +199,12 @@ export default function AssetPage() {
           <AssetChart
             symbol={symbol}
             resolution={interval.resolution}
-            rangeSeconds={interval.rangeSeconds}
+            rangeSeconds={timeframeRangeSeconds}
             style={style}
             showVolume={showVolume}
             showMA={showMA}
             showRSI={showRSI}
+            latestPrice={ticker?.price}
           />
           {ticker && (
             <div className="mt-4 flex items-center justify-between">
@@ -286,6 +307,50 @@ export default function AssetPage() {
                 <p className="text-xs text-slate-400">No recent headlines.</p>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Related + learn */}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Related</p>
+            <div className="mt-2 space-y-2 text-sm text-slate-200">
+              {related.map((r, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-lg border border-white/5 bg-slate-800/70 px-3 py-2"
+                >
+                  <span>{r}</span>
+                  <Link href="/markets" className="text-xs text-emerald-300 hover:underline">
+                    Explore
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Learn</p>
+              <button
+                onClick={() => setShowLearn((s) => !s)}
+                className="text-xs text-emerald-300 hover:underline"
+              >
+                {showLearn ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showLearn && (
+              <div className="mt-2 space-y-2 text-sm text-slate-300">
+                <p className="font-semibold text-slate-100">What moves {symbol}?</p>
+                <ul className="list-disc space-y-1 pl-4">
+                  <li>Macro: rates, dollar strength, sector flows.</li>
+                  <li>Micro: earnings, guidance, product launches.</li>
+                  <li>Sentiment: news, volume spikes, options flow.</li>
+                </ul>
+                <p className="text-xs text-slate-500">
+                  TODO: track completion per user (local flag) and add inline tooltips for first trade.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

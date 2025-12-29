@@ -31,7 +31,7 @@ export default function AuthPage() {
       const endpoint = mode === "login" ? "/login" : "/register";
       const res = await api(endpoint, { email, password });
       const token = res.token as string;
-      localStorage.setItem("flux_token", token);
+      sessionStorage.setItem("flux_token", token);
       setMessage("Success! Redirecting…");
       router.push("/");
     } catch (err) {

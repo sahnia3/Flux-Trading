@@ -29,7 +29,7 @@ export default function TradePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("flux_token");
+    const stored = sessionStorage.getItem("flux_token");
     if (stored && !token) {
       setToken(stored);
     }

@@ -1,73 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { HoldingsModal } from "@/components/HoldingsModal";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ColorType,
+  UTCTimestamp,
+  createChart,
+} from "lightweight-charts";
 import { LearnSidebar } from "@/components/LearnSidebar";
 
-type Ticker = {
-  symbol: string;
-  price: number;
-  change_24h: number;
-  updated_at: string;
-};
-
+type Ticker = { symbol: string; price: number; change_24h: number; updated_at: string };
 type Snapshot = Record<string, Ticker>;
-
-type Holding = {
-  symbol: string;
-  quantity: number;
-  average_buy_price: number;
-};
-
-type Portfolio = {
-  balance: number;
-  currency: string;
-  holdings: Holding[];
-};
+type Candle = { time: number; close: number };
 
 const wsUrl =
-  process.env.NEXT_PUBLIC_WS_URL?.replace(/^http/, "ws") ??
-  "ws://localhost:8080/ws/prices";
+  process.env.NEXT_PUBLIC_WS_URL?.replace(/^http/, "ws") ?? "ws://localhost:8080/ws/prices";
+const mockIndices = [
+  { symbol: "S&P 500", code: "SPX", value: 5250.23, change: -0.03 },
+  { symbol: "Nasdaq 100", code: "NDX", value: 18250.12, change: -0.18 },
+  { symbol: "Japan 225", code: "NI225", value: 50526.87, change: -0.44 },
+  { symbol: "SSE Composite", code: "000001", value: 3965.27, change: 0.04 },
+  { symbol: "FTSE 100", code: "UKX", value: 9862.45, change: -0.08 },
+  { symbol: "DAX", code: "DAX", value: 18450.33, change: 0.12 },
+  { symbol: "CAC 40", code: "PX1", value: 8100.16, change: -0.04 },
+];
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const mockCommodities = [
+  { symbol: "Crude Oil", value: 78.4, change: -0.45 },
+  { symbol: "Natural Gas", value: 2.65, change: 1.2 },
+  { symbol: "Gold", value: 2325.5, change: 0.22 },
+  { symbol: "Copper", value: 5.69, change: -2.47 },
+];
+
+const macroCards = {
+  crypto: { totalMcap: 2.1, btcDom: 51.2, btc: 87660, eth: 2935 },
+};
+
+const changeColor = (val: number) => (val >= 0 ? "text-emerald-300" : "text-rose-300");
+const toUtc = (value: number): UTCTimestamp =>
+  Math.floor(Number(value) || 0) as UTCTimestamp;
+
+const generateSynthetic = (points = 60): Candle[] => {
+  const now = Math.floor(Date.now() / 1000);
+  const out: Candle[] = [];
+  let price = 6900;
+  for (let i = points - 1; i >= 0; i--) {
+    price = price + (Math.random() - 0.5) * 50;
+    out.push({ time: now - i * 24 * 3600, close: price });
+  }
+  return out;
+};
 
 export default function Home() {
   const [prices, setPrices] = useState<Snapshot>({});
-  const [status, setStatus] = useState<"connecting" | "open" | "closed">(
-    "connecting",
-  );
+  const [status, setStatus] = useState<"connecting" | "open" | "closed">("connecting");
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [token, setToken] = useState<string | null>(null);
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [topUpAmount, setTopUpAmount] = useState(1000);
-  const [message, setMessage] = useState("");
-  const [holdingsView, setHoldingsView] = useState<"qty" | "value">("qty");
-  const [showHoldingsModal, setShowHoldingsModal] = useState(false);
   const [showLearn, setShowLearn] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0); // 0 = hidden
+  const [heroCandles, setHeroCandles] = useState<Candle[]>([]);
+  const heroChartRef = useRef<HTMLDivElement | null>(null);
 
-  // Load token after hydration to avoid SSR/CSR mismatch.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("flux_token");
-    if (stored && !token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setToken(stored);
-    }
-  }, [token]);
-
-  // WebSocket connection for prices
   useEffect(() => {
     let socket: WebSocket | null = null;
     let retryMs = 2000;
-
     const connect = () => {
       setStatus("connecting");
       socket = new WebSocket(wsUrl);
-      socket.onopen = () => {
-        setStatus("open");
-      };
+      socket.onopen = () => setStatus("open");
       socket.onclose = () => {
         setStatus("closed");
         setTimeout(connect, retryMs);
@@ -85,137 +83,90 @@ export default function Home() {
       };
     };
     connect();
-
-    return () => {
-      socket?.close();
-    };
+    return () => socket?.close();
   }, []);
 
-  const formattedPrices = useMemo(() => {
-    return Object.values(prices).sort((a, b) =>
-      a.symbol.localeCompare(b.symbol),
-    );
-  }, [prices]);
-
-  const isStock = (sym: string) =>
-    ["BTC", "ETH", "SOL"].indexOf(sym) === -1;
-
-  const livePrice = (sym: string) => prices[sym]?.price ?? 0;
-  const computePnL = (h: Holding) => {
-    const cp = livePrice(h.symbol);
-    const value = cp * h.quantity;
-    const cost = h.average_buy_price * h.quantity;
-    return { value, pnl: value - cost };
-  };
-
-  const api = useCallback(
-    async (path: string, opts: RequestInit = {}) => {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(opts.headers as Record<string, string> | undefined),
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${apiBase}${path}`, { ...opts, headers });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || "Request failed");
-      }
-      return res.json();
-    },
-    [token],
-  );
-
-  const getErrorMessage = (err: unknown) =>
-    err instanceof Error ? err.message : "Request failed";
-
-  const fetchPortfolio = useCallback(async () => {
-    try {
-      const res = await api("/portfolio", { method: "GET" });
-      setPortfolio(res as Portfolio);
-      setMessage("");
-    } catch (err) {
-      setMessage(getErrorMessage(err));
-    }
-  }, [api]);
-
-  // Fetch portfolio when token changes
+  // Fetch SPY (proxy for S&P 500) candles for hero chart; fallback to synthetic
   useEffect(() => {
-    if (!token) return;
-    void (async () => {
-      await fetchPortfolio();
-    })();
-  }, [token, fetchPortfolio]);
+    const load = async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const from = now - 90 * 24 * 3600;
+      try {
+        const res = await fetch(
+          `/api/market-data/SPY/D?from=${from}&to=${now}`,
+        );
+        if (!res.ok) throw new Error("fail");
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) {
+          setHeroCandles(
+            data.map((d: { time: number; close: number }) => ({
+              time: Number(d.time),
+              close: Number(d.close),
+            })),
+          );
+          return;
+        }
+      } catch {
+        setHeroCandles(generateSynthetic());
+      }
+    };
+    void load();
+  }, []);
 
-  const handleTopUp = async () => {
-    try {
-      await api("/wallet/topup", {
-        method: "POST",
-        body: JSON.stringify({ amount: topUpAmount }),
-      });
-      setMessage("Top-up successful");
-      await fetchPortfolio();
-    } catch (err) {
-      setMessage(getErrorMessage(err));
-    }
-  };
+  // Render hero chart
+  useEffect(() => {
+    const el = heroChartRef.current;
+    if (!el || heroCandles.length === 0) return;
 
-  const holdings = portfolio?.holdings ?? [];
+    const chart = createChart(el, {
+      width: el.clientWidth,
+      height: 220,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: "#cbd5e1",
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)" },
+      },
+      rightPriceScale: { borderColor: "rgba(255,255,255,0.1)" },
+      timeScale: { borderColor: "rgba(255,255,255,0.1)" },
+    });
+    const area = chart.addAreaSeries({
+      lineColor: "#22c55e",
+      topColor: "rgba(34,197,94,0.25)",
+      bottomColor: "rgba(34,197,94,0.05)",
+      lineWidth: 2,
+    });
+    area.setData(
+      heroCandles.map((c) => ({ time: toUtc(c.time), value: c.close })),
+    );
+
+    const handleResize = () => chart.applyOptions({ width: el.clientWidth });
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
+  }, [heroCandles]);
+
+  const topMovers = useMemo(
+    () =>
+      Object.values(prices)
+        .sort((a, b) => Math.abs(b.change_24h) - Math.abs(a.change_24h))
+        .slice(0, 12),
+    [prices],
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Tutorial overlay */}
-      {tutorialStep > 0 && tutorialStep < 4 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="max-w-lg rounded-2xl bg-slate-900 p-6 shadow-2xl shadow-black/60">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-              Guided Onboarding
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-50">
-              {tutorialStep === 1 && "Step 1: Authenticate"}
-              {tutorialStep === 2 && "Step 2: Top up your wallet"}
-              {tutorialStep === 3 && "Step 3: Place a trade"}
-            </h2>
-            <p className="mt-2 text-slate-300">
-              {tutorialStep === 1 &&
-                "Register or log in to get your JWT. This unlocks your dashboard."}
-              {tutorialStep === 2 &&
-                "Add fake USD to your wallet. No real payments involved."}
-              {tutorialStep === 3 &&
-                "Use the price cards or trade panel to buy/sell simulated assets."}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              {tutorialStep > 1 && (
-                <button
-                  className="rounded-lg border border-white/20 px-4 py-2 text-sm text-slate-200 hover:border-white/40"
-                  onClick={() => setTutorialStep((s) => s - 1)}
-                >
-                  Back
-                </button>
-              )}
-              <button
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
-                onClick={() =>
-                  setTutorialStep((s) => (s >= 3 ? 0 : s + 1))
-                }
-              >
-                {tutorialStep >= 3 ? "Finish" : "Next"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-              Flux Trading
-            </p>
-            <h1 className="text-3xl font-semibold text-slate-50">
-              Paper Trading Simulator
-            </h1>
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-400">Flux Trading</p>
+            <h1 className="text-3xl font-semibold text-slate-50">Market summary</h1>
             <p className="text-sm text-slate-400">
-              Crypto + NYSE stocks · JWT-protected · Live prices via WebSocket.
+              Paper trading · Live WS feed · Stocks + Crypto · Inspired by TradingView layout.
             </p>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-300">
@@ -229,14 +180,10 @@ export default function Home() {
                       : "bg-rose-400"
                 }`}
               />
-              {status === "open"
-                ? "Live"
-                : status === "connecting"
-                  ? "Connecting"
-                  : "Reconnecting"}
+              {status === "open" ? "Live" : status === "connecting" ? "Connecting" : "Reconnecting"}
             </div>
             <div className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300 backdrop-blur">
-              Live symbols: {formattedPrices.length}
+              Live symbols: {topMovers.length} · Updated {lastUpdated || "—"}
             </div>
             <button
               className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200 hover:border-emerald-400"
@@ -247,238 +194,193 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Market shortcuts */}
-        <div className="mb-4 grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/stocks"
-            className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-800/40 p-5 shadow-xl shadow-black/40 transition hover:-translate-y-0.5 hover:border-emerald-400/70"
-          >
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Explore</p>
-            <h3 className="mt-2 text-xl font-semibold text-slate-50">US Stocks Universe</h3>
-            <p className="mt-1 text-sm text-slate-300">
-              Browse every listed US stock, view company info, and jump into detail pages.
-            </p>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
-              View all stocks →
-            </div>
-          </Link>
-          <Link
-            href="/"
-            className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-800/40 p-5 shadow-xl shadow-black/40 transition hover:-translate-y-0.5 hover:border-emerald-400/70"
-          >
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Live Crypto</p>
-            <h3 className="mt-2 text-xl font-semibold text-slate-50">Crypto board</h3>
-            <p className="mt-1 text-sm text-slate-300">
-              Track BTC, ETH, SOL in real time. Use the cards below or trade panel to simulate moves.
-            </p>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-              Live feed ↓
-            </div>
-          </Link>
-        </div>
-
-        {/* CTA + Wallet */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-white/10 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Auth
-            </p>
-            <p className="mt-2 text-sm text-slate-300">
-              Manage your account and secure JWT session.
-            </p>
-            <Link
-              href="/auth"
-              className="mt-4 inline-block w-full rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
-            >
-              Go to Login / Register
-            </Link>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/40 p-5 shadow-2xl shadow-black/50">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Wallet
-            </p>
-            <div className="mt-3 text-3xl font-semibold text-slate-50">
-              {portfolio
-                ? `$${portfolio.balance.toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                  })} ${portfolio.currency}`
-                : "—"}
-            </div>
-            <div className="mt-3 space-y-2 text-sm">
-              <label className="text-slate-300">Top up (fake USD)</label>
-              <input
-                type="number"
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                value={topUpAmount}
-                onChange={(e) => setTopUpAmount(Number(e.target.value))}
-              />
-              <button
-                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400 disabled:opacity-50"
-                onClick={handleTopUp}
-                disabled={!token}
-              >
-                Top Up
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/40 p-5 shadow-2xl shadow-black/50">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Trade
-            </p>
-            <p className="mt-2 text-sm text-slate-300">
-              Place simulated orders with live prices for stocks and crypto.
-            </p>
-            <Link
-              href="/trade"
-              className="mt-4 inline-block w-full rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
-            >
-              Go to Trade
-            </Link>
-          </div>
-        </div>
-
-        {/* Live prices */}
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {formattedPrices.length === 0 && (
-            <div className="col-span-full rounded-xl border border-white/10 bg-slate-900/80 p-6 text-center text-slate-300">
-              Waiting for first tick…
-            </div>
-          )}
-          {formattedPrices.map((asset) => {
-            const change = asset.change_24h ?? 0;
-            const up = change >= 0;
-            return (
-              <div
-                key={asset.symbol}
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-900/30 p-6 shadow-2xl shadow-black/50"
-              >
-                <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-50">
-                    {asset.symbol} {isStock(asset.symbol) ? "· Stock" : "· Crypto"}
-                  </h2>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      up
-                        ? "bg-emerald-500/15 text-emerald-200"
-                        : "bg-rose-500/15 text-rose-200"
-                    }`}
-                  >
-                    {up ? "▲" : "▼"} {change.toFixed(2)}%
-                  </span>
-                </div>
-                <div className="mt-3 text-3xl font-semibold text-slate-50">
-                  ${asset.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                </div>
-                <p className="mt-2 text-xs text-slate-400">
-                  Updated: {new Date(asset.updated_at).toLocaleTimeString()}
+        {/* Hero: primary index area + major indices list */}
+        <section className="mb-8 grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-slate-900/85 p-6 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-50">S&P 500 (SPY proxy)</p>
+                <p className="text-3xl font-semibold text-slate-50">
+                  {heroCandles.length
+                    ? `$${heroCandles[heroCandles.length - 1].close.toFixed(2)}`
+                    : "—"}
                 </p>
-                <div className="mt-4 text-xs uppercase tracking-[0.25em] text-slate-500">
-                  Live Feed
+                <p className="text-sm text-emerald-300">Live chart</p>
+              </div>
+              <div className="text-xs text-slate-400">1M • Area</div>
+            </div>
+            <div className="mt-5 h-56 rounded-2xl border border-white/5 bg-slate-950/40">
+              <div ref={heroChartRef} className="h-full w-full" />
+            </div>
+            <div className="mt-4 flex gap-2 text-xs text-slate-300">
+              {["1D", "1W", "1M", "1Y", "All"].map((t) => (
+                <span key={t} className="rounded-full bg-white/5 px-3 py-1">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-slate-900/85 p-5 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-50">Major indices</p>
+              <Link href="/markets" className="text-xs text-emerald-300 hover:underline">
+                See all →
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm text-slate-200 sm:grid-cols-1">
+              {mockIndices.map((i) => (
+                <div
+                  key={i.code}
+                  className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-slate-50">
+                      {i.symbol} <span className="text-xs text-slate-400">{i.code}</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm">{i.value.toLocaleString()}</p>
+                    <p className={changeColor(i.change)}>
+                      {i.change >= 0 ? "▲" : "▼"} {Math.abs(i.change).toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Macro cards row */}
+        <section className="mb-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/85 p-5 shadow-xl shadow-black/45">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Crypto market cap</p>
+              <Link href="/markets" className="text-xs text-emerald-300 hover:underline">
+                See all coins
+              </Link>
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-slate-50">
+              ${macroCards.crypto.totalMcap}T
+            </div>
+            <div className="mt-3 h-24 rounded-xl bg-gradient-to-b from-emerald-500/20 to-transparent text-xs text-slate-400">
+              <div className="p-3">Mock 1M chart</div>
+            </div>
+            <div className="mt-3 text-sm">
+              <p className="text-slate-200">BTC Dominance</p>
+              <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-1/2 bg-emerald-400" />
+              </div>
+              <div className="mt-2 flex justify-between text-xs text-slate-400">
+                <span>BTC {macroCards.crypto.btcDom}%</span>
+                <span>ETH 20%</span>
+                <span>Alt 29%</span>
+              </div>
+              <div className="mt-2 space-y-1 text-xs text-slate-300">
+                <div className="flex justify-between">
+                  <span>Bitcoin</span>
+                  <span>${macroCards.crypto.btc.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Ethereum</span>
+                  <span>${macroCards.crypto.eth.toLocaleString()}</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Holdings */}
-        <div className="mt-6 rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/30 p-5 shadow-2xl shadow-black/50">
-          <div className="flex items-center justify-between">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-              Holdings
-            </p>
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <span>View:</span>
-              <button
-                className={`rounded-full px-3 py-1 ${holdingsView === "qty" ? "bg-emerald-500 text-emerald-900" : "bg-slate-800 text-slate-200"}`}
-                onClick={() => setHoldingsView("qty")}
-              >
-                Shares/Tokens
-              </button>
-              <button
-                className={`rounded-full px-3 py-1 ${holdingsView === "value" ? "bg-emerald-500 text-emerald-900" : "bg-slate-800 text-slate-200"}`}
-                onClick={() => setHoldingsView("value")}
-              >
-                Value & PnL
-              </button>
-              <button
-                className="rounded-full border border-white/10 px-3 py-1 text-slate-200 hover:border-emerald-400"
-                onClick={() => setShowHoldingsModal(true)}
-              >
-                Expand
-              </button>
             </div>
           </div>
-          {holdings.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-300">
-              No holdings yet. Buy something to see it here.
-            </p>
-          ) : (
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {holdings.map((h) => {
-                const { value, pnl } = computePnL(h);
-                const changeUp = pnl >= 0;
-                return (
-                  <a
-                    key={h.symbol}
-                    href={`/asset/${h.symbol}`}
-                    className="group overflow-hidden rounded-xl border border-white/10 bg-slate-900/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-400/50 hover:shadow-emerald-500/20"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-50">
-                          {h.symbol} {isStock(h.symbol) ? "· Stock" : "· Crypto"}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Avg ${h.average_buy_price.toFixed(2)}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          changeUp
-                            ? "bg-emerald-500/15 text-emerald-200"
-                            : "bg-rose-500/15 text-rose-200"
-                        }`}
-                      >
-                        {changeUp ? "▲" : "▼"} {pnl.toFixed(2)}
-                      </span>
-                    </div>
-                    {holdingsView === "qty" ? (
-                      <div className="mt-3 text-lg font-semibold text-slate-50">
-                        {h.quantity} units
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-lg font-semibold text-slate-50">
-                        ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} value
-                      </div>
-                    )}
-                    <p className="mt-1 text-xs text-slate-500">
-                      Live @ ${livePrice(h.symbol).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </p>
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        <footer className="mt-6 text-xs text-slate-500">
-          WebSocket: {wsUrl}
-          {lastUpdated ? ` · Last tick: ${new Date(lastUpdated).toLocaleTimeString()}` : ""}
-          {message ? ` · ${message}` : ""}
-        </footer>
+          <div className="rounded-3xl border border-white/10 bg-slate-900/85 p-5 shadow-xl shadow-black/45">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">US Dollar index</p>
+              <span className="text-xs text-slate-400">1 month</span>
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-slate-50">104.8</div>
+            <p className="text-sm text-rose-300">-1.52%</p>
+            <div className="mt-3 h-24 rounded-xl bg-gradient-to-b from-white/10 to-transparent">
+              <div className="p-3 text-xs text-slate-400">Mock 1M chart</div>
+            </div>
+            <div className="mt-3 text-xs text-slate-400">See all FX →</div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-900/85 p-5 shadow-xl shadow-black/45">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Commodities</p>
+              <Link href="/markets" className="text-xs text-emerald-300 hover:underline">
+                See all futures
+              </Link>
+            </div>
+            <div className="mt-3 space-y-2 text-sm text-slate-200">
+              {mockCommodities.map((c) => (
+                <div key={c.symbol} className="flex justify-between">
+                  <span>{c.symbol}</span>
+                  <span className={changeColor(c.change)}>
+                    {c.value} ({c.change}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-900/85 p-5 shadow-xl shadow-black/45">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">US 10Y yield</p>
+              <span className="text-xs text-slate-400">1 month</span>
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-slate-50">4.12%</div>
+            <p className="text-sm text-emerald-300">+2.57%</p>
+            <div className="mt-3 h-24 rounded-xl bg-gradient-to-b from-emerald-500/15 to-transparent">
+              <div className="p-3 text-xs text-slate-400">Mock 1M chart</div>
+            </div>
+            <div className="mt-3 text-xs text-slate-400">
+              US annual inflation: mock bar chart • Interest rate: 3.75% · Next release Jan 28, 2026
+            </div>
+          </div>
+        </section>
+
+        {/* Live board */}
+        <section className="mt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-50">Live board</h2>
+            <p className="text-xs text-slate-400">Top movers across stocks & crypto</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {topMovers.map((t) => {
+              const up = (t.change_24h ?? 0) >= 0;
+              return (
+                <Link
+                  key={t.symbol}
+                  href={`/asset/${t.symbol}`}
+                  className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-900/40 p-4 shadow-lg shadow-black/40 transition hover:-translate-y-0.5 hover:border-emerald-400/60"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-50">{t.symbol}</p>
+                      <p className="text-xs uppercase text-slate-400">Live feed</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        up ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"
+                      }`}
+                    >
+                      {up ? "▲" : "▼"} {t.change_24h?.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="mt-3 text-2xl font-semibold text-slate-50">
+                    ${t.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Updated: {new Date(t.updated_at).toLocaleTimeString()}
+                  </p>
+                </Link>
+              );
+            })}
+            {!topMovers.length && (
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-sm text-slate-400">
+                Waiting for live feed…
+              </div>
+            )}
+          </div>
+        </section>
       </div>
-      <HoldingsModal
-        open={showHoldingsModal}
-        onClose={() => setShowHoldingsModal(false)}
-        holdings={holdings}
-        prices={prices}
-        onTrade={(sym) => {
-          if (typeof window !== "undefined") window.location.href = `/trade?symbol=${sym}`;
-        }}
-      />
       <LearnSidebar open={showLearn} onClose={() => setShowLearn(false)} />
     </main>
   );

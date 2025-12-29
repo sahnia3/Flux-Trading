@@ -28,6 +28,7 @@ type Props = {
   showVolume: boolean;
   showMA: boolean;
   showRSI: boolean; // placeholder, not drawn yet
+  latestPrice?: number;
 };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -35,14 +36,14 @@ const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 const toUtc = (value: number): UTCTimestamp =>
   Math.floor(Number(value) || 0) as UTCTimestamp;
 
-const generateFallback = (rangeSeconds?: number): Candle[] => {
+const generateFallback = (rangeSeconds?: number, basePrice?: number): Candle[] => {
   // Lightweight fallback so the chart never renders empty
   const now = Math.floor(Date.now() / 1000);
   const span = rangeSeconds ?? 30 * 24 * 60 * 60; // default 30d
   const points = 90;
   const step = Math.max(60, Math.floor(span / points));
   const start = now - span;
-  let price = 120;
+  let price = basePrice ?? 120;
   const out: Candle[] = [];
   for (let i = 0; i < points; i++) {
     const base = price + (Math.random() - 0.5) * 2;
@@ -83,6 +84,7 @@ export function AssetChart({
   style,
   showVolume,
   showMA,
+  latestPrice,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -132,8 +134,8 @@ export function AssetChart({
 
   const chartData = useMemo<Candle[]>(() => {
     if (candles && candles.length > 0) return candles;
-    return generateFallback(rangeSeconds);
-  }, [candles, rangeSeconds]);
+    return generateFallback(rangeSeconds, latestPrice);
+  }, [candles, rangeSeconds, latestPrice]);
 
   // Render chart
   useEffect(() => {

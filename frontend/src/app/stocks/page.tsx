@@ -109,6 +109,9 @@ export default function StocksPage() {
                     className="h-full w-full object-contain"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).style.display = "none";
+                      (e.currentTarget.parentElement as HTMLElement).innerHTML = `<span class="text-sm font-semibold text-slate-100">${s.symbol
+                        .charAt(0)
+                        .toUpperCase()}</span>`;
                     }}
                   />
                 </div>

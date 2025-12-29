@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -76,8 +77,8 @@ func NewFeed(cfg FeedConfig) *Feed {
 		},
 	}
 
-	// Allow override list via env STOCK_SYMBOLS for stocks, CRYPTO_IDS for crypto.
-	if env := strings.TrimSpace(strings.Join(strings.FieldsFunc(getEnv("CRYPTO_IDS", ""), func(r rune) bool { return r == ',' || r == ' ' }), ",")); env != "" {
+	// Allow override list via env CRYPTO_IDS="id:SYM,id2:SYM2" for crypto.
+	if env := strings.TrimSpace(strings.Join(strings.FieldsFunc(os.Getenv("CRYPTO_IDS"), func(r rune) bool { return r == ',' || r == ' ' }), ",")); env != "" {
 		m := make(map[string]string)
 		for _, part := range strings.Split(env, ",") {
 			part = strings.TrimSpace(part)
