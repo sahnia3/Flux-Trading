@@ -52,12 +52,18 @@ func NewFeed(cfg FeedConfig) *Feed {
 		stockInterval = 45 * time.Second
 	}
 
-	return &Feed{
+	f := &Feed{
 		client: &http.Client{Timeout: 10 * time.Second},
 		idToSymbol: map[string]string{
-			"bitcoin":  "BTC",
-			"ethereum": "ETH",
-			"solana":   "SOL",
+			"bitcoin":       "BTC",
+			"ethereum":      "ETH",
+			"solana":        "SOL",
+			"binancecoin":   "BNB",
+			"avalanche-2":   "AVAX",
+			"ripple":        "XRP",
+			"cardano":       "ADA",
+			"polkadot":      "DOT",
+			"polygon":       "MATIC",
 		},
 		prices:         make(map[string]Ticker),
 		subscribers:    make(map[*websocket.Conn]struct{}),
@@ -69,6 +75,29 @@ func NewFeed(cfg FeedConfig) *Feed {
 			CheckOrigin: func(r *http.Request) bool { return true }, // allow all origins for dev
 		},
 	}
+
+	// Allow override list via env STOCK_SYMBOLS for stocks, CRYPTO_IDS for crypto.
+	if env := strings.TrimSpace(strings.Join(strings.FieldsFunc(getEnv("CRYPTO_IDS", ""), func(r rune) bool { return r == ',' || r == ' ' }), ",")); env != "" {
+		m := make(map[string]string)
+		for _, part := range strings.Split(env, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			// accept "id:SYMBOL" or just "id" (symbol inferred uppercased)
+			if strings.Contains(part, ":") {
+				p := strings.SplitN(part, ":", 2)
+				m[p[0]] = strings.ToUpper(p[1])
+			} else {
+				m[part] = strings.ToUpper(part)
+			}
+		}
+		if len(m) > 0 {
+			f.idToSymbol = m
+		}
+	}
+
+	return f
 }
 
 // Start kicks off the polling loops for crypto and stocks.

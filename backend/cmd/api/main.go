@@ -113,6 +113,12 @@ func main() {
 	r.POST("/trade/sell", auth, handlers.TradeSell(db))
 	r.POST("/wallet/topup", auth, handlers.TopUpWallet(db))
 	r.GET("/portfolio", auth, handlers.GetPortfolio(db))
+	// Market data + news (public)
+	r.GET("/api/market-data/:symbol/:interval", handlers.MarketData())
+	r.GET("/api/news/:symbol", handlers.News())
+	// Symbols + company info (public, cached)
+	r.GET("/api/symbols", handlers.Symbols())
+	r.GET("/api/company/:symbol", handlers.CompanyInfo())
 
 	apiPort := os.Getenv("PORT")
 	if apiPort == "" {

@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { HoldingsModal } from "@/components/HoldingsModal";
+import { LearnSidebar } from "@/components/LearnSidebar";
 
 type Ticker = {
   symbol: string;
@@ -25,9 +28,9 @@ type Portfolio = {
 
 const wsUrl =
   process.env.NEXT_PUBLIC_WS_URL?.replace(/^http/, "ws") ??
-  "ws://localhost:8081/ws/prices";
+  "ws://localhost:8080/ws/prices";
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8081";
+const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Home() {
   const [prices, setPrices] = useState<Snapshot>({});
@@ -36,16 +39,13 @@ export default function Home() {
   );
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [topUpAmount, setTopUpAmount] = useState(1000);
-  const [tradeSymbol, setTradeSymbol] = useState("BTC");
-  const [tradeQty, setTradeQty] = useState(0.01);
-  const [tutorialStep, setTutorialStep] = useState(1);
   const [message, setMessage] = useState("");
   const [holdingsView, setHoldingsView] = useState<"qty" | "value">("qty");
+  const [showHoldingsModal, setShowHoldingsModal] = useState(false);
+  const [showLearn, setShowLearn] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0); // 0 = hidden
 
   // Load token after hydration to avoid SSR/CSR mismatch.
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function Home() {
     return () => {
       socket?.close();
     };
-  }, [tradeSymbol]);
+  }, []);
 
   const formattedPrices = useMemo(() => {
     return Object.values(prices).sort((a, b) =>
@@ -146,23 +146,6 @@ export default function Home() {
     })();
   }, [token, fetchPortfolio]);
 
-  const handleAuth = async () => {
-    try {
-      const endpoint = authMode === "login" ? "/login" : "/register";
-      const res = await api(endpoint, {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      const t = res.token as string;
-      setToken(t);
-      localStorage.setItem("flux_token", t);
-      setMessage("Authenticated!");
-      await fetchPortfolio();
-    } catch (err) {
-      setMessage(getErrorMessage(err));
-    }
-  };
-
   const handleTopUp = async () => {
     try {
       await api("/wallet/topup", {
@@ -170,28 +153,6 @@ export default function Home() {
         body: JSON.stringify({ amount: topUpAmount }),
       });
       setMessage("Top-up successful");
-      await fetchPortfolio();
-    } catch (err) {
-      setMessage(getErrorMessage(err));
-    }
-  };
-
-  const handleTrade = async (side: "buy" | "sell") => {
-    try {
-      const priceToUse = prices[tradeSymbol]?.price ?? 0;
-      if (priceToUse <= 0) {
-        setMessage("No live price available for this symbol");
-        return;
-      }
-      await api(`/trade/${side}`, {
-        method: "POST",
-        body: JSON.stringify({
-          symbol: tradeSymbol,
-          quantity: tradeQty,
-          price: priceToUse,
-        }),
-      });
-      setMessage(`${side.toUpperCase()} executed`);
       await fetchPortfolio();
     } catch (err) {
       setMessage(getErrorMessage(err));
@@ -277,63 +238,60 @@ export default function Home() {
             <div className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300 backdrop-blur">
               Live symbols: {formattedPrices.length}
             </div>
+            <button
+              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200 hover:border-emerald-400"
+              onClick={() => setShowLearn(true)}
+            >
+              Learn
+            </button>
           </div>
         </header>
 
-        {/* Auth + Wallet */}
+        {/* Market shortcuts */}
+        <div className="mb-4 grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/stocks"
+            className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-800/40 p-5 shadow-xl shadow-black/40 transition hover:-translate-y-0.5 hover:border-emerald-400/70"
+          >
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Explore</p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-50">US Stocks Universe</h3>
+            <p className="mt-1 text-sm text-slate-300">
+              Browse every listed US stock, view company info, and jump into detail pages.
+            </p>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+              View all stocks →
+            </div>
+          </Link>
+          <Link
+            href="/"
+            className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-800/40 p-5 shadow-xl shadow-black/40 transition hover:-translate-y-0.5 hover:border-emerald-400/70"
+          >
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Live Crypto</p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-50">Crypto board</h3>
+            <p className="mt-1 text-sm text-slate-300">
+              Track BTC, ETH, SOL in real time. Use the cards below or trade panel to simulate moves.
+            </p>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
+              Live feed ↓
+            </div>
+          </Link>
+        </div>
+
+        {/* CTA + Wallet */}
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-white/10 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
               Auth
             </p>
-            <div className="mt-3 flex gap-2 text-sm">
-              <button
-                className={`rounded-lg px-3 py-1 ${
-                  authMode === "login"
-                    ? "bg-emerald-500 text-emerald-900"
-                    : "bg-slate-800 text-slate-200"
-                }`}
-                onClick={() => setAuthMode("login")}
-              >
-                Login
-              </button>
-              <button
-                className={`rounded-lg px-3 py-1 ${
-                  authMode === "register"
-                    ? "bg-emerald-500 text-emerald-900"
-                    : "bg-slate-800 text-slate-200"
-                }`}
-                onClick={() => setAuthMode("register")}
-              >
-                Register
-              </button>
-            </div>
-            <div className="mt-3 space-y-2 text-sm">
-              <input
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                placeholder="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                placeholder="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
-                onClick={handleAuth}
-              >
-                {authMode === "login" ? "Login" : "Register"}
-              </button>
-              {token && (
-                <p className="text-xs text-emerald-300">
-                  Token stored. Dashboard unlocked.
-                </p>
-              )}
-            </div>
+            <p className="mt-2 text-sm text-slate-300">
+              Manage your account and secure JWT session.
+            </p>
+            <Link
+              href="/auth"
+              className="mt-4 inline-block w-full rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
+            >
+              Go to Login / Register
+            </Link>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-900/40 p-5 shadow-2xl shadow-black/50">
@@ -356,7 +314,7 @@ export default function Home() {
                 onChange={(e) => setTopUpAmount(Number(e.target.value))}
               />
               <button
-                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
+                className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400 disabled:opacity-50"
                 onClick={handleTopUp}
                 disabled={!token}
               >
@@ -369,96 +327,15 @@ export default function Home() {
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
               Trade
             </p>
-            <div className="mt-3 space-y-2 text-sm">
-              <label className="text-slate-300">Symbol</label>
-              <select
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                value={tradeSymbol}
-                onChange={(e) => setTradeSymbol(e.target.value)}
-              >
-                {formattedPrices.map((p) => (
-                  <option key={p.symbol} value={p.symbol}>
-                    {p.symbol} {isStock(p.symbol) ? "(Stock)" : "(Crypto)"}
-                  </option>
-                ))}
-              </select>
-              <label className="text-slate-300">Quantity</label>
-              <input
-                type="number"
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                value={tradeQty}
-                onChange={(e) => setTradeQty(Number(e.target.value))}
-              />
-              <div className="flex gap-2">
-                <button
-                  className="flex-1 rounded-lg border border-white/10 bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:border-emerald-400"
-                  onClick={() => {
-                    const price = livePrice(tradeSymbol);
-                    const bal = portfolio?.balance ?? 0;
-                    if (price > 0) setTradeQty(Math.max((bal / price) * 0.25, 0.0001));
-                  }}
-                  disabled={!token}
-                >
-                  Buy 1/4
-                </button>
-                <button
-                  className="flex-1 rounded-lg border border-white/10 bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:border-emerald-400"
-                  onClick={() => {
-                    const price = livePrice(tradeSymbol);
-                    const bal = portfolio?.balance ?? 0;
-                    if (price > 0) setTradeQty(Math.max((bal / price) * 0.5, 0.0001));
-                  }}
-                  disabled={!token}
-                >
-                  Buy 1/2
-                </button>
-                <button
-                  className="flex-1 rounded-lg border border-white/10 bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:border-rose-400"
-                  onClick={() => {
-                    const qty = holdings.find((h) => h.symbol === tradeSymbol)?.quantity ?? 0;
-                    if (qty > 0) setTradeQty(qty * 0.5);
-                  }}
-                  disabled={!token}
-                >
-                  Sell 1/2
-                </button>
-                <button
-                  className="flex-1 rounded-lg border border-white/10 bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:border-rose-400"
-                  onClick={() => {
-                    const qty = holdings.find((h) => h.symbol === tradeSymbol)?.quantity ?? 0;
-                    if (qty > 0) setTradeQty(qty);
-                  }}
-                  disabled={!token}
-                >
-                  Sell Max
-                </button>
-              </div>
-              <label className="text-slate-300">
-                Price (live only)
-              </label>
-              <input
-                type="number"
-                className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                value={prices[tradeSymbol]?.price ?? 0}
-                readOnly
-              />
-              <div className="flex gap-2">
-                <button
-                  className="w-1/2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400 disabled:opacity-50"
-                  onClick={() => handleTrade("buy")}
-                  disabled={!token}
-                >
-                  Buy
-                </button>
-                <button
-                  className="w-1/2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-rose-50 hover:bg-rose-400 disabled:opacity-50"
-                  onClick={() => handleTrade("sell")}
-                  disabled={!token}
-                >
-                  Sell
-                </button>
-              </div>
-            </div>
+            <p className="mt-2 text-sm text-slate-300">
+              Place simulated orders with live prices for stocks and crypto.
+            </p>
+            <Link
+              href="/trade"
+              className="mt-4 inline-block w-full rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-400"
+            >
+              Go to Trade
+            </Link>
           </div>
         </div>
 
@@ -526,6 +403,12 @@ export default function Home() {
               >
                 Value & PnL
               </button>
+              <button
+                className="rounded-full border border-white/10 px-3 py-1 text-slate-200 hover:border-emerald-400"
+                onClick={() => setShowHoldingsModal(true)}
+              >
+                Expand
+              </button>
             </div>
           </div>
           {holdings.length === 0 ? (
@@ -587,6 +470,16 @@ export default function Home() {
           {message ? ` · ${message}` : ""}
         </footer>
       </div>
+      <HoldingsModal
+        open={showHoldingsModal}
+        onClose={() => setShowHoldingsModal(false)}
+        holdings={holdings}
+        prices={prices}
+        onTrade={(sym) => {
+          if (typeof window !== "undefined") window.location.href = `/trade?symbol=${sym}`;
+        }}
+      />
+      <LearnSidebar open={showLearn} onClose={() => setShowLearn(false)} />
     </main>
   );
 }
