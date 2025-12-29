@@ -67,11 +67,18 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		token, err := GenerateToken(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to issue token"})
+			return
+		}
+
 		// Success Response
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "User registered successfully",
 			"user_id": userID,
 			"balance": 100000.00,
+			"token":   token,
 		})
 	}
 }
@@ -103,6 +110,16 @@ func LoginUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user_id": user.ID})
+		token, err := GenerateToken(user.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to issue token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Login successful",
+			"user_id": user.ID,
+			"token":   token,
+		})
 	}
 }

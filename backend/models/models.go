@@ -26,3 +26,33 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
+
+// LoginResponse represents token return.
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
+// TradeRequest carries buy/sell details.
+type TradeRequest struct {
+	Symbol   string  `json:"symbol" binding:"required"`
+	Quantity float64 `json:"quantity" binding:"required"`
+	Price    float64 `json:"price" binding:"required"`
+}
+
+// TopUpRequest adds fake USD to wallet.
+type TopUpRequest struct {
+	Amount float64 `json:"amount" binding:"required"`
+}
+
+// PortfolioResponse aggregates wallet + holdings.
+type PortfolioResponse struct {
+	Balance  float64        `json:"balance"`
+	Currency string         `json:"currency"`
+	Holdings []HoldingEntry `json:"holdings"`
+}
+
+type HoldingEntry struct {
+	Symbol          string  `json:"symbol"`
+	Quantity        float64 `json:"quantity"`
+	AverageBuyPrice float64 `json:"average_buy_price"`
+}

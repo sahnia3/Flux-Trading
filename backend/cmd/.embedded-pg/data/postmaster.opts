@@ -1,0 +1,1 @@
+/Users/adityasahni/Desktop/Projects/Flux-Trading/backend/cmd/.embedded-pg/runtime/bin/postgres "-D" "../.embedded-pg/data" "-p" "5432"
