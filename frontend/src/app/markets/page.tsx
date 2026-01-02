@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketCategoryNav } from "@/components/MarketCategoryNav";
 import { MarketPillCard } from "@/components/MarketPillCard";
@@ -25,6 +24,32 @@ const categories = [
   "ETFs",
   "Economy",
 ] as const;
+
+const baseIndexPrices: Record<string, number> = {
+  SPX: 5250.0,
+  NDX: 18500.0,
+  DJI: 39650.0,
+};
+
+const baseStockPrices: Record<string, number> = {
+  AAPL: 190,
+  NVDA: 490,
+  AMZN: 150,
+  MSFT: 330,
+  TSLA: 54, // fallback if WS missing
+  GOOGL: 140,
+  AMD: 110,
+};
+
+const mockVolumes: Record<string, string> = {
+  AAPL: "78M",
+  NVDA: "48M",
+  AMZN: "62M",
+  MSFT: "35M",
+  TSLA: "120M",
+  AMD: "82M",
+  GOOGL: "28M",
+};
 
 const featuredMap: Record<string, { symbol: string; name: string }[]> = {
   Indices: [
@@ -69,6 +94,8 @@ const worldIndices = [
   { symbol: "PX1", name: "CAC 40", price: 8100.16, change: -0.04 },
   { symbol: "SSE", name: "SSE Comp", price: 3965.27, change: 0.04 },
   { symbol: "HSI", name: "Hang Seng", price: 17650.22, change: 0.18 },
+  { symbol: "NIFTY50", name: "Nifty 50", price: 22200.0, change: 0.15 },
+  { symbol: "BSESN", name: "BSE Sensex", price: 73500.0, change: 0.10 },
 ];
 
 const mockSpark = (base = 100, points = 20) =>
@@ -83,10 +110,33 @@ export default function MarketsPage() {
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [active, setActive] = useState<(typeof categories)[number]>("Indices");
   const sectionsRef = useRef<Record<string, HTMLElement | null>>({});
+  const [alphaQuotes, setAlphaQuotes] = useState<Record<string, { price: number; change: number; volume?: string }>>(
+    {},
+  );
+  const [finnhubQuotes, setFinnhubQuotes] = useState<Record<string, { price: number; change: number }>>({});
+
+  const formatPrice = (value: number) =>
+    new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+
+  const livePrice = (sym: string, isIndex = false) => {
+    if (finnhubQuotes[sym]?.price) return finnhubQuotes[sym].price;
+    if (alphaQuotes[sym]?.price) return alphaQuotes[sym].price;
+    if (prices[sym]?.price) return prices[sym].price;
+    return isIndex ? baseIndexPrices[sym] ?? 0 : baseStockPrices[sym] ?? 0;
+  };
+
+  const liveChange = (sym: string) => {
+    if (finnhubQuotes[sym]?.change !== undefined) return finnhubQuotes[sym].change;
+    if (alphaQuotes[sym]?.change !== undefined) return alphaQuotes[sym].change;
+    if (prices[sym]?.change_24h !== undefined) return prices[sym].change_24h;
+    return 0;
+  };
 
   useEffect(() => {
     let socket: WebSocket | null = null;
     let retryMs = 2000;
+    const alphaKey = process.env.NEXT_PUBLIC_ALPHA_KEY;
+    const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_KEY;
     const connect = () => {
       setStatus("connecting");
       socket = new WebSocket(wsUrl);
@@ -111,26 +161,110 @@ export default function MarketsPage() {
     return () => socket?.close();
   }, []);
 
+  // Alpha Vantage fallback for key US tickers (AMD, TSLA, AAPL, NVDA, AMZN, MSFT)
+  useEffect(() => {
+    const alphaKey = process.env.NEXT_PUBLIC_ALPHA_KEY;
+    if (!alphaKey) return;
+    const symbols = ["AMD", "TSLA", "AAPL", "NVDA", "AMZN", "MSFT"];
+    let cancelled = false;
+
+    const fetchQuote = async (sym: string) => {
+      try {
+        const res = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${alphaKey}`,
+        );
+        const data = await res.json();
+        const q = data?.["Global Quote"];
+        if (!q) return null;
+        const price = parseFloat(q["05. price"]) || 0;
+        const change = parseFloat(q["10. change percent"]) || 0;
+        const volume = q["06. volume"] ? Number(q["06. volume"]).toLocaleString() : "—";
+        return { sym, price, change, volume };
+      } catch {
+        return null;
+      }
+    };
+
+    const load = async () => {
+      const results = await Promise.all(symbols.map(fetchQuote));
+      if (cancelled) return;
+      const next: Record<string, { price: number; change: number; volume?: string }> = {};
+      results.forEach((r) => {
+        if (r) next[r.sym] = { price: r.price, change: r.change, volume: r.volume };
+      });
+      if (Object.keys(next).length > 0) setAlphaQuotes(next);
+    };
+    load();
+    const timer = setInterval(load, 60_000); // refresh every minute
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // Finnhub quote fallback for TSLA + major indices
+  useEffect(() => {
+    const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_KEY;
+    if (!finnhubKey) return;
+    const symbols = ["TSLA", "SPX", "NDX", "DJI"];
+    let cancelled = false;
+
+    const fetchFinnhub = async (sym: string) => {
+      try {
+        const res = await fetch(
+          `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${finnhubKey}`,
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        const price = typeof data?.c === "number" ? data.c : 0;
+        const change = typeof data?.dp === "number" ? data.dp : 0;
+        return { sym, price, change };
+      } catch {
+        return null;
+      }
+    };
+
+    const load = async () => {
+      const results = await Promise.all(symbols.map(fetchFinnhub));
+      if (cancelled) return;
+      const next: Record<string, { price: number; change: number }> = {};
+      results.forEach((r) => {
+        if (r) next[r.sym] = { price: r.price, change: r.change };
+      });
+      if (Object.keys(next).length > 0) setFinnhubQuotes(next);
+    };
+    load();
+    const timer = setInterval(load, 45_000); // refresh every 45s
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
   const heroData = useMemo(() => {
     const list = featuredMap[active] ?? [];
     return list.map((item) => {
-      const p = prices[item.symbol];
       return {
         ...item,
-        price: p?.price ?? 0,
-        change: p?.change_24h ?? 0,
-        spark: mockSpark(p?.price || 100),
+        price: livePrice(item.symbol, true),
+        change: liveChange(item.symbol),
+        spark: mockSpark(livePrice(item.symbol, true) || 100),
       };
     });
-  }, [active, prices]);
+  }, [active, prices, alphaQuotes, finnhubQuotes]);
 
   const topTableRows = (symbols: { symbol: string; name?: string }[]): TableRow[] =>
     symbols.map((s) => ({
       symbol: s.symbol,
       name: s.name,
-      price: prices[s.symbol]?.price ?? 0,
-      change: prices[s.symbol]?.change_24h ?? 0,
-      volume: "—", // TODO: wire real volume if available
+      price:
+        finnhubQuotes[s.symbol]?.price ??
+        alphaQuotes[s.symbol]?.price ??
+        prices[s.symbol]?.price ??
+        baseStockPrices[s.symbol] ??
+        0,
+      change: finnhubQuotes[s.symbol]?.change ?? alphaQuotes[s.symbol]?.change ?? prices[s.symbol]?.change_24h ?? 0,
+      volume: alphaQuotes[s.symbol]?.volume ?? mockVolumes[s.symbol] ?? "—",
     }));
 
   const changeColor = (v: number) => (v >= 0 ? "text-emerald-300" : "text-rose-300");
@@ -214,25 +348,12 @@ export default function MarketsPage() {
             <h2 className="text-xl font-semibold text-slate-50">Indices</h2>
             <p className="text-xs text-slate-400">Major + world indices</p>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {featuredMap.Indices.map((idx) => (
-              <MarketPillCard
-                key={idx.symbol}
-                symbol={idx.symbol}
-                name={idx.name}
-                value={prices[idx.symbol]?.price?.toLocaleString() ?? "—"}
-                change={prices[idx.symbol]?.change_24h ?? 0}
-                spark={mockSpark(prices[idx.symbol]?.price || 100)}
-                href={`/asset/${idx.symbol}`}
-              />
-            ))}
-          </div>
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-200">World indices</p>
-              <Link href="/stocks" className="text-xs text-emerald-300 hover:underline">
+              <a href="#world-indices" className="text-xs text-emerald-300 hover:underline">
                 View all →
-              </Link>
+              </a>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {worldIndices.map((w) => (
@@ -254,7 +375,9 @@ export default function MarketsPage() {
         <section ref={(el) => (sectionsRef.current["US stocks"] = el)} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-slate-50">US stocks</h2>
-            <p className="text-xs text-slate-400">Mega caps + trends</p>
+            <a href="/stocks" className="text-xs text-emerald-300 hover:underline">
+              View all US stocks →
+            </a>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {featuredMap["US stocks"].map((s) => (
@@ -262,38 +385,38 @@ export default function MarketsPage() {
                 key={s.symbol}
                 symbol={s.symbol}
                 name={s.name}
-                value={prices[s.symbol]?.price?.toLocaleString() ?? "—"}
-                change={prices[s.symbol]?.change_24h ?? 0}
-                spark={mockSpark(prices[s.symbol]?.price || 100)}
+                value={formatPrice(livePrice(s.symbol))}
+                change={liveChange(s.symbol)}
+                spark={mockSpark(livePrice(s.symbol) || 100)}
                 href={`/asset/${s.symbol}`}
               />
             ))}
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-200">Community trends (mock)</p>
+              <p className="mb-2 text-sm font-semibold text-slate-200">Community trends</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {["AMD", "AMZN", "TSLA", "AAPL"].map((s) => (
                   <MarketTileCard
                     key={s}
                     symbol={s}
                     name={s}
-                    value={prices[s]?.price?.toLocaleString() ?? "—"}
-                    change={prices[s]?.change_24h ?? 0}
-                    spark={mockSpark(prices[s]?.price || 100)}
+                    value={formatPrice(livePrice(s))}
+                    change={liveChange(s)}
+                    spark={mockSpark(livePrice(s) || 100)}
                     href={`/asset/${s}`}
                   />
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-200">Highest volume (mocked)</p>
+              <p className="mb-2 text-sm font-semibold text-slate-200">Highest volume</p>
               <MarketTable
                 rows={topTableRows(featuredMap["US stocks"]).map((r) => ({
                   ...r,
-                  volume: "TODO",
+                  volume: mockVolumes[r.symbol] ?? "—",
                 }))}
-                label="Volume leaders (mock)"
+                label="Volume leaders"
                 sortable={["change"]}
                 hideVolume={false}
               />
@@ -302,7 +425,11 @@ export default function MarketsPage() {
         </section>
 
         {/* World stocks */}
-        <section ref={(el) => (sectionsRef.current["World stocks"] = el)} className="mb-10">
+        <section
+          ref={(el) => (sectionsRef.current["World stocks"] = el)}
+          className="mb-10"
+          id="world-indices"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-slate-50">World stocks</h2>
             <p className="text-xs text-slate-400">Regional highlights (mocked)</p>

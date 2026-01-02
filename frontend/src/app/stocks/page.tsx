@@ -15,6 +15,9 @@ const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 export default function StocksPage() {
   const [symbols, setSymbols] = useState<SymbolItem[]>([]);
   const [query, setQuery] = useState("");
+  const [bucket, setBucket] = useState<
+    "All" | "Tech" | "AI" | "Mega-cap" | "Large-cap" | "Mid-cap" | "Small-cap"
+  >("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,10 +55,29 @@ export default function StocksPage() {
     };
   }, [query]);
 
-  const visible = useMemo(
-    () => symbols.slice(0, 300), // prevent rendering thousands at once
-    [symbols],
-  );
+  const megaCaps = new Set(["AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "NVDA", "TSLA"]);
+
+  const visible = useMemo(() => {
+    const base = symbols.slice(0, 600); // keep light for render
+    if (bucket === "All") return base;
+    return base.filter((s) => {
+      const desc = `${s.description} ${s.type ?? ""}`.toUpperCase();
+      if (bucket === "Mega-cap") return megaCaps.has(s.symbol.toUpperCase());
+      if (bucket === "Tech")
+        return (
+          megaCaps.has(s.symbol.toUpperCase()) ||
+          desc.includes("TECH") ||
+          desc.includes("SOFTWARE") ||
+          desc.includes("SEMICONDUCTOR") ||
+          desc.includes("IT")
+        );
+      if (bucket === "AI") return desc.includes("AI") || desc.includes("ARTIFICIAL");
+      if (bucket === "Large-cap") return !megaCaps.has(s.symbol.toUpperCase()) && desc.includes("LARGE");
+      if (bucket === "Mid-cap") return desc.includes("MID") || desc.includes("MID-CAP");
+      if (bucket === "Small-cap") return desc.includes("SMALL") || desc.includes("SMALL-CAP");
+      return true;
+    });
+  }, [symbols, bucket]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -83,7 +105,18 @@ export default function StocksPage() {
             placeholder="Search symbol or company (e.g., AAPL or Apple)"
             className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none sm:max-w-md"
           />
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            {["All", "Tech", "AI", "Mega-cap", "Large-cap", "Mid-cap", "Small-cap"].map((b) => (
+              <button
+                key={b}
+                onClick={() => setBucket(b as typeof bucket)}
+                className={`rounded-full px-3 py-1 ${
+                  bucket === b ? "bg-emerald-500 text-emerald-950" : "bg-slate-800 text-slate-200"
+                }`}
+              >
+                {b}
+              </button>
+            ))}
             <span className="rounded-full bg-white/5 px-3 py-1">
               Showing {visible.length} symbols
             </span>

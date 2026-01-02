@@ -70,7 +70,8 @@ func main() {
 	}
 
 	// Start price feed (crypto + stocks via Finnhub).
-	stockSymbols := strings.Split(getEnv("STOCK_SYMBOLS", "AAPL,MSFT,NVDA,AMZN,GOOGL"), ",")
+	// Include a broader default basket so symbols like TSLA have live quotes out of the box.
+	stockSymbols := strings.Split(getEnv("STOCK_SYMBOLS", "AAPL,MSFT,NVDA,AMZN,GOOGL,TSLA,META,SPY"), ",")
 	for i, s := range stockSymbols {
 		stockSymbols[i] = strings.ToUpper(strings.TrimSpace(s))
 	}

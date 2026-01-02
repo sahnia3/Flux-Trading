@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -106,6 +107,19 @@ var (
 // CompanyInfo aggregates profile + metrics + news for a symbol, cached for 30m.
 func CompanyInfo() gin.HandlerFunc {
 	apiKey := os.Getenv("FINNHUB_API_KEY")
+	alphaKey := os.Getenv("ALPHAVANTAGE_API_KEY")
+	coingeckoKey := os.Getenv("COINGECKO_API_KEY")
+	cryptoMap := map[string]string{
+		"BTC": "bitcoin",
+		"ETH": "ethereum",
+		"SOL": "solana",
+		"AVAX": "avalanche-2",
+		"BNB": "binancecoin",
+		"XRP": "ripple",
+		"ADA": "cardano",
+		"DOT": "polkadot",
+		"MATIC": "polygon",
+	}
 	return func(c *gin.Context) {
 		sym := strings.ToUpper(strings.TrimSpace(c.Param("symbol")))
 		if sym == "" {
@@ -121,16 +135,84 @@ func CompanyInfo() gin.HandlerFunc {
 		}
 		companyCacheMu.Unlock()
 
-		// Profile
-		profileURL := fmt.Sprintf("https://finnhub.io/api/v1/stock/profile2?symbol=%s&token=%s", sym, apiKey)
+		// Profile (with fallback search/resolve if empty)
 		profile := map[string]interface{}{}
-		if err := fetchJSON(profileURL, &profile); err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "profile error"})
-			return
+		resolved := sym
+		loadProfile := func(target string) (map[string]interface{}, error) {
+			out := map[string]interface{}{}
+			profileURL := fmt.Sprintf("https://finnhub.io/api/v1/stock/profile2?symbol=%s&token=%s", target, apiKey)
+			if err := fetchJSON(profileURL, &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		}
+		if p, err := loadProfile(resolved); err == nil {
+			profile = p
+		}
+		// If profile missing or marketCap absent, try search to resolve symbol
+		if len(profile) == 0 || profile["marketCapitalization"] == nil {
+			var searchResp struct {
+				Result []struct {
+					Symbol        string `json:"symbol"`
+					DisplaySymbol string `json:"displaySymbol"`
+					Type          string `json:"type"`
+				} `json:"result"`
+			}
+			searchURL := fmt.Sprintf("https://finnhub.io/api/v1/search?q=%s&token=%s", sym, apiKey)
+			_ = fetchJSON(searchURL, &searchResp) // best-effort
+			for _, r := range searchResp.Result {
+				if strings.EqualFold(r.Type, "Common Stock") && r.DisplaySymbol != "" {
+					resolved = r.DisplaySymbol
+					if p, err := loadProfile(resolved); err == nil && len(p) > 0 {
+						profile = p
+					}
+					break
+				}
+			}
 		}
 
-		// Metrics
-		metricsURL := fmt.Sprintf("https://finnhub.io/api/v1/stock/metric?symbol=%s&metric=all&token=%s", sym, apiKey)
+		// If still empty, try Alpha Vantage overview (stocks only)
+		if (len(profile) == 0 || profile["marketCapitalization"] == nil) && alphaKey != "" {
+			var av map[string]interface{}
+			overviewURL := fmt.Sprintf("https://www.alphavantage.co/query?function=OVERVIEW&symbol=%s&apikey=%s", resolved, alphaKey)
+			if err := fetchJSON(overviewURL, &av); err == nil && len(av) > 0 && av["Name"] != nil {
+				// Map key fields
+				profile = map[string]interface{}{
+					"name":                 av["Name"],
+					"ticker":               resolved,
+					"industry":             av["Industry"],
+					"ipo":                  av["IPODate"],
+					"currency":             "USD",
+					"marketCapitalization": toFloat(av["MarketCapitalization"]),
+				}
+			}
+		}
+
+		// If still empty and symbol is a known crypto, try CoinGecko
+		if (len(profile) == 0 || profile["marketCapitalization"] == nil) && coingeckoKey != "" {
+			if id, ok := cryptoMap[resolved]; ok {
+				var cg []struct {
+					Name       string  `json:"name"`
+					Symbol     string  `json:"symbol"`
+					MarketCap  float64 `json:"market_cap"`
+					Current    float64 `json:"current_price"`
+				}
+				url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=%s&x_cg_demo_api_key=%s", id, coingeckoKey)
+				if err := fetchJSON(url, &cg); err == nil && len(cg) > 0 {
+					profile = map[string]interface{}{
+						"name":                 cg[0].Name,
+						"ticker":               resolved,
+						"industry":             "Crypto",
+						"currency":             "USD",
+						"marketCapitalization": cg[0].MarketCap,
+						"currentPrice":         cg[0].Current,
+					}
+				}
+			}
+		}
+
+		// Metrics (use resolved symbol)
+		metricsURL := fmt.Sprintf("https://finnhub.io/api/v1/stock/metric?symbol=%s&metric=all&token=%s", resolved, apiKey)
 		var metricsResp struct {
 			Metric map[string]interface{} `json:"metric"`
 		}
@@ -144,15 +226,39 @@ func CompanyInfo() gin.HandlerFunc {
 		from := to.Add(-7 * 24 * time.Hour)
 		newsURL := fmt.Sprintf(
 			"https://finnhub.io/api/v1/company-news?symbol=%s&from=%s&to=%s&token=%s",
-			sym, from.Format("2006-01-02"), to.Format("2006-01-02"), apiKey,
+			resolved, from.Format("2006-01-02"), to.Format("2006-01-02"), apiKey,
 		)
 		var news []map[string]interface{}
 		_ = fetchJSON(newsURL, &news) // non-fatal if fails
+
+		// If no news and we have Alpha key, try Alpha Vantage news sentiment (stocks only)
+		if len(news) == 0 && alphaKey != "" {
+			var avNews struct {
+				Feed []struct {
+					Title string `json:"title"`
+					URL   string `json:"url"`
+					Time  string `json:"time_published"`
+					Source string `json:"source"`
+				} `json:"feed"`
+			}
+			avNewsURL := fmt.Sprintf("https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=%s&apikey=%s", resolved, alphaKey)
+			if err := fetchJSON(avNewsURL, &avNews); err == nil {
+				for _, f := range avNews.Feed {
+					news = append(news, map[string]interface{}{
+						"headline": f.Title,
+						"url":      f.URL,
+						"source":   f.Source,
+						"datetime": f.Time,
+					})
+				}
+			}
+		}
 
 		payload := map[string]interface{}{
 			"profile": profile,
 			"metrics": metricsResp.Metric,
 			"news":    news,
+			"symbol":  resolved,
 		}
 
 		companyCacheMu.Lock()
@@ -174,4 +280,22 @@ func fetchJSON(url string, target interface{}) error {
 		return fmt.Errorf("status %d", resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func toFloat(v interface{}) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case string:
+		if f, err := strconv.ParseFloat(t, 64); err == nil {
+			return f
+		}
+	}
+	return 0
 }

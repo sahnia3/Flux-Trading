@@ -1,92 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type Module = {
-  id: string;
-  title: string;
-  summary: string;
-  bullets: string[];
-  image?: string;
-  quiz?: { q: string; options: string[]; answer: number }[];
-};
-
-const modules: Module[] = [
-  {
-    id: "candle-basics",
-    title: "Candlestick basics",
-    summary:
-      "Each candle shows a fight between buyers and sellers in a timeframe. Body = open/close, wicks = extremes, colors show direction.",
-    bullets: [
-      "Green/Up candle: close > open. Red/Down candle: close < open.",
-      "Long body = decisive move; tiny body = indecision (doji-like).",
-      "Long upper wick = sellers rejected higher prices; long lower wick = buyers defended lows.",
-    ],
-    image:
-      "https://images.unsplash.com/photo-1549421263-5ec394a5ad08?auto=format&fit=crop&w=1200&q=80",
-    quiz: [
-      {
-        q: "A long upper wick with a small body near the low suggests:",
-        options: ["Selling rejection (bearish)", "Strong bullish close", "No price movement"],
-        answer: 0,
-      },
-      {
-        q: "Which prices form the candle body?",
-        options: ["Open & Close", "High & Low", "Volume & VWAP"],
-        answer: 0,
-      },
-    ],
-  },
-  {
-    id: "reading-charts",
-    title: "Reading charts",
-    summary:
-      "Structure + volume tells the story. Trends, levels, and momentum help you spot risk/reward pockets.",
-    bullets: [
-      "Higher highs/lows = uptrend; lower highs/lows = downtrend.",
-      "Support/Resistance: swing highs/lows, round numbers, moving averages, VWAP.",
-      "Volume spike + break of resistance can precede momentum; spike with flat price = absorption/indecision.",
-    ],
-    image:
-      "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
-    quiz: [
-      {
-        q: "Flat price + big volume often signals:",
-        options: ["Absorption/indecision", "Guaranteed breakout", "No liquidity"],
-        answer: 0,
-      },
-      {
-        q: "Higher highs and higher lows define:",
-        options: ["Downtrend", "Uptrend", "Sideways"],
-        answer: 1,
-      },
-    ],
-  },
-  {
-    id: "risk",
-    title: "Risk management",
-    summary: "Capital preservation > profit. Sizing, stops, and diversification keep you in the game.",
-    bullets: [
-      "Risk per trade: typically 0.5%–2% of account.",
-      "Stops belong where your thesis fails, not at arbitrary round numbers.",
-      "Avoid concentration: diversify by asset, sector, and timeframe.",
-    ],
-    image:
-      "https://images.unsplash.com/photo-1504274066651-8d31a536b11a?auto=format&fit=crop&w=1200&q=80",
-    quiz: [
-      {
-        q: "Recommended risk per trade for most traders:",
-        options: ["1-2% of account", "10% of account", "All-in if confident"],
-        answer: 0,
-      },
-      {
-        q: "Stops should be placed:",
-        options: ["Where your thesis fails", "At random round numbers", "Never"],
-        answer: 0,
-      },
-    ],
-  },
-];
+import { learnModules, LearnModule } from "@/data/learnModules";
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -97,7 +12,7 @@ export function LearnSidebar({ open, onClose }: Props) {
   const [activeQuiz, setActiveQuiz] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
 
-  const submitQuiz = (m: Module) => {
+  const submitQuiz = (m: LearnModule) => {
     if (!m.quiz) return;
     let score = 0;
     m.quiz.forEach((q, idx) => {
@@ -127,7 +42,7 @@ export function LearnSidebar({ open, onClose }: Props) {
         </button>
       </div>
       <div className="mt-4 space-y-3 text-sm">
-        {modules.map((m) => (
+        {learnModules.map((m: LearnModule) => (
           <div key={m.id} className="rounded-xl border border-white/10 bg-slate-800/70 p-3">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold">{m.title}</h4>
@@ -138,31 +53,51 @@ export function LearnSidebar({ open, onClose }: Props) {
               )}
             </div>
             <p className="mt-1 text-slate-300 text-xs">{m.summary}</p>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-200">
-              {m.bullets.map((b, i) => (
-                <li key={i}>{b}</li>
+            <div className="mt-2 space-y-3 text-xs text-slate-200">
+              {m.sections.map((s, i) => (
+                <div key={i} className="rounded-lg border border-white/5 bg-slate-900/60 p-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-200">
+                    {s.heading}
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-4">
+                    {s.bullets.map((b, bi) => (
+                      <li key={bi}>{b}</li>
+                    ))}
+                  </ul>
+                  {s.todoLinks && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      TODO links: {s.todoLinks.join(" • ")}
+                    </p>
+                  )}
+                </div>
               ))}
-            </ul>
-            {m.image && (
-              <div className="mt-3 overflow-hidden rounded-lg border border-white/5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={m.image} alt={m.title} className="h-28 w-full object-cover" />
+              <div className="rounded-lg border border-white/5 bg-slate-900/60 p-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-200">
+                  Apply now
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {m.applyNow.map((a, ai) => (
+                    <li key={ai}>{a}</li>
+                  ))}
+                </ul>
               </div>
-            )}
-            {m.quiz && (
+            </div>
+            {m.quiz && m.quiz.length > 0 && (
               <div className="mt-2 space-y-2 text-xs">
                 <button
                   className="rounded-lg bg-emerald-500 px-3 py-1 font-semibold text-emerald-900 hover:bg-emerald-400"
                   onClick={() => setActiveQuiz(activeQuiz === m.id ? null : m.id)}
                 >
                   {activeQuiz === m.id ? "Hide quiz" : "Take quiz"}
-                  {scores[m.id] !== undefined ? ` (Score: ${scores[m.id]})` : ""}
+                  {scores[m.id] !== undefined
+                    ? ` (Score: ${scores[m.id]}/${m.quiz.length})`
+                    : ""}
                 </button>
                 {activeQuiz === m.id && (
                   <div className="space-y-2 rounded-lg border border-white/10 bg-slate-900/80 p-2">
                     {m.quiz.map((q, idx) => (
                       <div key={idx} className="space-y-1">
-                        <p className="font-semibold text-slate-200">{q.q}</p>
+                        <p className="font-semibold text-slate-200">{q.question}</p>
                         <div className="flex flex-col gap-1">
                           {q.options.map((opt, oi) => (
                             <label key={oi} className="flex items-center gap-2 text-slate-300">
@@ -178,6 +113,7 @@ export function LearnSidebar({ open, onClose }: Props) {
                             </label>
                           ))}
                         </div>
+                        <p className="text-[11px] text-slate-400">Answer: {q.explanation}</p>
                       </div>
                     ))}
                     <button
