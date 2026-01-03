@@ -1,0 +1,22 @@
+export const COMMODITY_ETFS = [
+    { symbol: "GLD", name: "SPDR Gold Shares", type: "Commodity" },
+    { symbol: "IAU", name: "iShares Gold Trust", type: "Commodity" },
+    { symbol: "SLV", name: "iShares Silver Trust", type: "Commodity" },
+    { symbol: "GDX", name: "VanEck Gold Miners", type: "Commodity" },
+    { symbol: "GDXJ", name: "VanEck Junior Gold Miners", type: "Commodity" },
+    { symbol: "USO", name: "United States Oil Fund", type: "Commodity" },
+    { symbol: "DBO", name: "Invesco DB Oil Fund", type: "Commodity" },
+    { symbol: "UNG", name: "United States Natural Gas Fund", type: "Commodity" },
+    { symbol: "BOIL", name: "ProShares Ultra Bloomberg Natural Gas", type: "Commodity" },
+    { symbol: "KOLD", name: "ProShares UltraShort Bloomberg Natural Gas", type: "Commodity" },
+    { symbol: "DBC", name: "Invesco DB Commodity Index Tracking Fund", type: "Commodity" },
+    { symbol: "PDBC", name: "Invesco Optimum Yield Diversified Commodity Strategy No K-1 ETF", type: "Commodity" },
+    { symbol: "CORN", name: "Teucrium Corn Fund", type: "Commodity" },
+    { symbol: "SOYB", name: "Teucrium Soybean Fund", type: "Commodity" },
+    { symbol: "WEAT", name: "Teucrium Wheat Fund", type: "Commodity" },
+    { symbol: "COPX", name: "Global X Copper Miners ETF", type: "Commodity" },
+    { symbol: "CPER", name: "United States Copper Index Fund", type: "Commodity" },
+    { symbol: "PALL", name: "Aberdeen Standard Physical Palladium Shares ETF", type: "Commodity" },
+    { symbol: "PPLT", name: "Aberdeen Standard Physical Platinum Shares ETF", type: "Commodity" },
+    { symbol: "LIT", name: "Global X Lithium & Battery Tech ETF", type: "Commodity" }
+];
