@@ -1,0 +1,70 @@
+export type CryptoAsset = {
+    symbol: string;
+    name: string;
+    logo: string;
+    id?: string; // CoinGecko ID for price fetch
+    type: "crypto" | "etf";
+};
+
+export const CRYPTO_ASSETS: CryptoAsset[] = [
+    // Top Coins
+    { symbol: "BTC", name: "Bitcoin", logo: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png", id: "bitcoin", type: "crypto" },
+    { symbol: "ETH", name: "Ethereum", logo: "https://assets.coingecko.com/coins/images/279/large/ethereum.png", id: "ethereum", type: "crypto" },
+    { symbol: "USDT", name: "Tether", logo: "https://assets.coingecko.com/coins/images/325/large/Tether.png", id: "tether", type: "crypto" },
+    { symbol: "BNB", name: "BNB", logo: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png", id: "binancecoin", type: "crypto" },
+    { symbol: "SOL", name: "Solana", logo: "https://assets.coingecko.com/coins/images/4128/large/solana.png", id: "solana", type: "crypto" },
+    { symbol: "XRP", name: "XRP", logo: "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png", id: "ripple", type: "crypto" },
+    { symbol: "USDC", name: "USDC", logo: "https://assets.coingecko.com/coins/images/6319/large/USD_Coin_icon.png", id: "usd-coin", type: "crypto" },
+    { symbol: "ADA", name: "Cardano", logo: "https://assets.coingecko.com/coins/images/975/large/cardano.png", id: "cardano", type: "crypto" },
+    { symbol: "AVAX", name: "Avalanche", logo: "https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png", id: "avalanche-2", type: "crypto" },
+    { symbol: "DOGE", name: "Dogecoin", logo: "https://assets.coingecko.com/coins/images/5/large/dogecoin.png", id: "dogecoin", type: "crypto" },
+    { symbol: "TRX", name: "TRON", logo: "https://assets.coingecko.com/coins/images/1094/large/tron-logo.png", id: "tron", type: "crypto" },
+    { symbol: "DOT", name: "Polkadot", logo: "https://assets.coingecko.com/coins/images/12171/large/polkadot.png", id: "polkadot", type: "crypto" },
+    { symbol: "LINK", name: "Chainlink", logo: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png", id: "chainlink", type: "crypto" },
+    { symbol: "MATIC", name: "Polygon", logo: "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png", id: "matic-network", type: "crypto" },
+    { symbol: "TON", name: "Toncoin", logo: "https://assets.coingecko.com/coins/images/17980/large/ton_symbol.png", id: "the-open-network", type: "crypto" },
+    { symbol: "SHIB", name: "Shiba Inu", logo: "https://assets.coingecko.com/coins/images/11939/large/shiba.png", id: "shiba-inu", type: "crypto" },
+    { symbol: "LTC", name: "Litecoin", logo: "https://assets.coingecko.com/coins/images/2/large/litecoin.png", id: "litecoin", type: "crypto" },
+    { symbol: "BCH", name: "Bitcoin Cash", logo: "https://assets.coingecko.com/coins/images/641/large/bitcoin_cash.png", id: "bitcoin-cash", type: "crypto" },
+    { symbol: "NEAR", name: "NEAR Protocol", logo: "https://assets.coingecko.com/coins/images/10365/large/near_icon.png", id: "near", type: "crypto" },
+    { symbol: "UNI", name: "Uniswap", logo: "https://assets.coingecko.com/coins/images/12504/large/uniswap-uni.png", id: "uniswap", type: "crypto" },
+    { symbol: "LEO", name: "LEO Token", logo: "https://assets.coingecko.com/coins/images/8418/large/leo-token.png", id: "leo-token", type: "crypto" },
+    { symbol: "DAI", name: "Dai", logo: "https://assets.coingecko.com/coins/images/9956/large/4943.png", id: "dai", type: "crypto" },
+    { symbol: "APT", name: "Aptos", logo: "https://assets.coingecko.com/coins/images/26455/large/aptos_round.png", id: "aptos", type: "crypto" },
+    { symbol: "ATOM", name: "Cosmos", logo: "https://assets.coingecko.com/coins/images/1481/large/cosmos_hub.png", id: "cosmos", type: "crypto" },
+    { symbol: "ETC", name: "Ethereum Classic", logo: "https://assets.coingecko.com/coins/images/453/large/ethereum-classic-logo.png", id: "ethereum-classic", type: "crypto" },
+    { symbol: "XMR", name: "Monero", logo: "https://assets.coingecko.com/coins/images/69/large/monero_logo.png", id: "monero", type: "crypto" },
+    { symbol: "XLM", name: "Stellar", logo: "https://assets.coingecko.com/coins/images/100/large/Stellar_symbol_black_RGB.png", id: "stellar", type: "crypto" },
+    { symbol: "STX", name: "Stacks", logo: "https://assets.coingecko.com/coins/images/2069/large/Stacks_logo_full.png", id: "blockstack", type: "crypto" },
+    { symbol: "FIL", name: "Filecoin", logo: "https://assets.coingecko.com/coins/images/12817/large/filecoin.png", id: "filecoin", type: "crypto" },
+    { symbol: "HBAR", name: "Hedera", logo: "https://assets.coingecko.com/coins/images/3688/large/hbar.png", id: "hedera-hashgraph", type: "crypto" },
+    { symbol: "IMX", name: "Immutable", logo: "https://assets.coingecko.com/coins/images/17233/large/immutableX_symbol.png", id: "immutable-x", type: "crypto" },
+    { symbol: "CRO", name: "Cronos", logo: "https://assets.coingecko.com/coins/images/7310/large/cypto.png", id: "crypto-com-chain", type: "crypto" },
+    { symbol: "VET", name: "VeChain", logo: "https://assets.coingecko.com/coins/images/1167/large/VET_Token_Icon.png", id: "vechain", type: "crypto" },
+    { symbol: "MKR", name: "Maker", logo: "https://assets.coingecko.com/coins/images/1364/large/Mark_Maker.png", id: "maker", type: "crypto" },
+    { symbol: "RNDR", name: "Render", logo: "https://assets.coingecko.com/coins/images/11636/large/rndr.png", id: "render-token", type: "crypto" },
+    { symbol: "GRT", name: "The Graph", logo: "https://assets.coingecko.com/coins/images/13397/large/Graph_Token.png", id: "the-graph", type: "crypto" },
+    { symbol: "INJ", name: "Injective", logo: "https://assets.coingecko.com/coins/images/12882/large/Secondary_Symbol.png", id: "injective-protocol", type: "crypto" },
+    { symbol: "OP", name: "Optimism", logo: "https://assets.coingecko.com/coins/images/25244/large/Optimism.png", id: "optimism", type: "crypto" },
+    { symbol: "AAVE", name: "Aave", logo: "https://assets.coingecko.com/coins/images/12645/large/AAVE.png", id: "aave", type: "crypto" },
+    { symbol: "THETA", name: "Theta Network", logo: "https://assets.coingecko.com/coins/images/2538/large/theta-token-logo.png", id: "theta-token", type: "crypto" },
+    { symbol: "ALGO", name: "Algorand", logo: "https://assets.coingecko.com/coins/images/4380/large/download.png", id: "algorand", type: "crypto" },
+    { symbol: "RUNE", name: "THORChain", logo: "https://assets.coingecko.com/coins/images/6595/large/Rune_Icon_black_on_white.png", id: "thorchain", type: "crypto" },
+    { symbol: "FTM", name: "Fantom", logo: "https://assets.coingecko.com/coins/images/4001/large/Fantom_round.png", id: "fantom", type: "crypto" },
+    { symbol: "SAND", name: "The Sandbox", logo: "https://assets.coingecko.com/coins/images/12129/large/sandbox_logo.jpg", id: "the-sandbox", type: "crypto" },
+    { symbol: "MANA", name: "Decentraland", logo: "https://assets.coingecko.com/coins/images/878/large/decentraland-mana.png", id: "decentraland", type: "crypto" },
+    { symbol: "FLOW", name: "Flow", logo: "https://assets.coingecko.com/coins/images/13446/large/5f6294c0c7a8cda55cb1c936_Flow_Wordmark.png", id: "flow", type: "crypto" },
+    { symbol: "AXS", name: "Axie Infinity", logo: "https://assets.coingecko.com/coins/images/13029/large/axie_infinity_logo.png", id: "axie-infinity", type: "crypto" },
+    { symbol: "EGLD", name: "MultiversX", logo: "https://assets.coingecko.com/coins/images/11976/large/esdt-logo.png", id: "elrond-erd-2", type: "crypto" },
+    { symbol: "EOS", name: "EOS", logo: "https://assets.coingecko.com/coins/images/738/large/eos-eos-logo.png", id: "eos", type: "crypto" },
+    { symbol: "XTZ", name: "Tezos", logo: "https://assets.coingecko.com/coins/images/976/large/Tezos-Logo.png", id: "tezos", type: "crypto" },
+
+    // ETFs (Crypto backed)
+    { symbol: "IBIT", name: "iShares Bitcoin Trust", logo: "https://assets.parqet.com/logos/symbol/IBIT?format=png", type: "etf" },
+    { symbol: "FBTC", name: "Fidelity Wise Origin Bitcoin", logo: "https://assets.parqet.com/logos/symbol/FBTC?format=png", type: "etf" },
+    { symbol: "GBTC", name: "Grayscale Bitcoin Trust", logo: "https://assets.parqet.com/logos/symbol/GBTC?format=png", type: "etf" },
+    { symbol: "BITB", name: "Bitwise Bitcoin ETF", logo: "https://assets.parqet.com/logos/symbol/BITB?format=png", type: "etf" },
+    { symbol: "ARKB", name: "ARK 21Shares Bitcoin ETF", logo: "https://assets.parqet.com/logos/symbol/ARKB?format=png", type: "etf" },
+    { symbol: "ETHE", name: "Grayscale Ethereum Trust", logo: "https://assets.parqet.com/logos/symbol/ETHE?format=png", type: "etf" },
+    { symbol: "BITO", name: "ProShares Bitcoin Strategy", logo: "https://assets.parqet.com/logos/symbol/BITO?format=png", type: "etf" },
+];

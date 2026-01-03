@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AssetChart } from "@/components/AssetChart";
+import { NewsFeed } from "@/components/NewsFeed";
+import { SocialFeed } from "@/components/SocialFeed";
 
 type Ticker = {
   symbol: string;
@@ -29,6 +31,8 @@ type CompanyInfo = {
     ipo?: string;
     marketCapitalization?: number;
     currency?: string;
+    supply?: number;
+    volume?: number;
   };
   metrics?: Record<string, number | string>;
   news?: {
@@ -48,9 +52,26 @@ const intervals = [
   { label: "All", resolution: "M", rangeSeconds: undefined },
 ];
 
+// Map special indices to clean names and static fundamentals
+type IndexData = { name: string; cap: number; pe: number; div: number };
+const knownIndices: Record<string, IndexData> = {
+  "^GSPC": { name: "S&P 500", cap: 45000000, pe: 27.5, div: 1.4 },
+  "^IXIC": { name: "Nasdaq 100", cap: 24000000, pe: 32.4, div: 0.8 },
+  "^DJI": { name: "Dow Jones 30", cap: 12000000, pe: 23.1, div: 1.9 },
+  "^N225": { name: "Nikkei 225", cap: 4500000, pe: 21.0, div: 1.7 },
+  "^FTSE": { name: "FTSE 100", cap: 2600000, pe: 14.5, div: 3.8 },
+  "^GDAXI": { name: "DAX Performance", cap: 1800000, pe: 13.8, div: 3.1 },
+  "^FCHI": { name: "CAC 40", cap: 2400000, pe: 15.2, div: 2.9 },
+  "^HSI": { name: "Hang Seng", cap: 2200000, pe: 10.5, div: 4.2 },
+  "^NSEI": { name: "Nifty 50", cap: 2800000, pe: 22.8, div: 1.2 },
+  "^BSESN": { name: "BSE Sensex", cap: 1600000, pe: 23.5, div: 1.1 },
+};
+
 export default function AssetPage() {
   const { symbol: rawSymbol } = useParams<{ symbol: string }>();
-  const symbol = rawSymbol?.toUpperCase?.() ?? "";
+  // Decode explicitly to handle special chars like ^ (%5E)
+  const symbol = rawSymbol ? decodeURIComponent(rawSymbol).toUpperCase() : "";
+
   const [ticker, setTicker] = useState<Ticker | null>(null);
   const [status, setStatus] = useState<"connecting" | "open" | "closed">("connecting");
   const [interval, setInterval] = useState(intervals[2]); // default 1M
@@ -58,7 +79,26 @@ export default function AssetPage() {
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(true);
   const [showRSI, setShowRSI] = useState(false); // placeholder
-  const [company, setCompany] = useState<CompanyInfo | null>(null);
+
+  // Pre-fill company for indices with static fundamentals
+  const idx = knownIndices[symbol];
+  const [company, setCompany] = useState<CompanyInfo | null>(() =>
+    idx ? {
+      profile: {
+        name: idx.name,
+        ticker: symbol,
+        industry: "Index",
+        currency: "USD",
+        marketCapitalization: idx.cap,
+      },
+      metrics: {
+        peBasicExclExtraTTM: idx.pe,
+        dividendYieldIndicatedAnnual: idx.div,
+        beta: 1.0,
+      }
+    } : null
+  );
+
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
   const [token, setToken] = useState<string | null>(() =>
@@ -150,7 +190,7 @@ export default function AssetPage() {
 
   // Company fundamentals/info (cached server side)
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol || knownIndices[symbol]) return; // Skip fetch for indices
     let active = true;
     const load = async () => {
       try {
@@ -214,9 +254,11 @@ export default function AssetPage() {
         <header className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-slate-400">
-              Asset Detail
+              {company?.profile?.ticker?.replace(/^(BINANCE:|COINBASE:|\^)/, "").replace(/(USDT|USD|EUR)$/, "") ?? symbol.replace(/^(BINANCE:|COINBASE:|\^)/, "").replace(/(USDT|USD|EUR)$/, "")}
             </p>
-            <h1 className="text-3xl font-semibold text-slate-50">{symbol}</h1>
+            <h1 className="text-3xl font-bold text-slate-50 mb-1">
+              {company?.profile?.name ?? symbol.replace(/^(BINANCE:|COINBASE:|\^)/, "").replace(/(USDT|USD|EUR)$/, "")}
+            </h1>
             <p className="text-sm text-slate-400">
               Live via WebSocket · Feed: {status} · Market: {statusText()}
             </p>
@@ -264,7 +306,7 @@ export default function AssetPage() {
           </label>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={showRSI} onChange={(e) => setShowRSI(e.target.checked)} />
-            RSI (placeholder)
+            RSI
           </label>
         </div>
 
@@ -290,9 +332,8 @@ export default function AssetPage() {
                 </div>
               </div>
               <span
-                className={`rounded-full px-4 py-2 text-xs font-semibold ${
-                  up ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"
-                }`}
+                className={`rounded-full px-4 py-2 text-xs font-semibold ${up ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"
+                  }`}
               >
                 {ticker ? (
                   <>
@@ -397,93 +438,104 @@ export default function AssetPage() {
           </div>
         </div>
 
-        {/* Fundamentals + news */}
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 lg:col-span-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Company overview</p>
-            {companyError && (
-              <p className="mt-2 text-sm text-rose-300">{companyError}</p>
-            )}
+        {/* Fundamentals */}
+        <div className="mt-8 mb-8">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-text-main">Fundamentals</h2>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Powered by Finnhub</span>
+            </div>
+
+            {companyError && <p className="text-rose-400">{companyError}</p>}
+
             {company && (
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <div className="space-y-2">
-                  <p className="text-sm text-slate-400">Name</p>
-                  <p className="text-lg font-semibold text-slate-50">
-                    {company.profile?.name ?? symbol}
-                  </p>
-                  {company.profile?.weburl && (
-                    <a
-                      href={company.profile.weburl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-emerald-300 hover:underline"
-                    >
-                      {company.profile.weburl}
-                    </a>
-                  )}
-                  <p className="text-xs text-slate-400">
-                    Industry: {company.profile?.industry ?? "—"}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    IPO: {company.profile?.ipo ?? "—"}
-                  </p>
-                </div>
-                <div className="space-y-1 text-sm text-slate-200">
-                  <p className="text-slate-400">Market cap</p>
-                  <p className="text-lg font-semibold">
+              <div className="grid gap-6 md:grid-cols-4 select-none">
+                {/* Market Cap */}
+                <div className="space-y-1">
+                  <p className="text-xs text-text-dim uppercase">Market Cap</p>
+                  <p className="text-xl font-mono text-text-main">
                     {typeof company.profile?.marketCapitalization === "number"
-                      ? // Finnhub returns marketCap in millions USD; convert to absolute and compact-format
-                        formatCurrencyCompact(
-                          (company.profile.marketCapitalization as number) * 1_000_000,
-                          company.profile?.currency || "USD",
-                        )
+                      ? formatCurrencyCompact((company.profile.marketCapitalization as number) * 1000000, company.profile?.currency)
                       : "—"}
                   </p>
-                  <p className="text-slate-400">PE (TTM)</p>
-                  <p>
-                    {company.metrics?.["peBasicExclExtraTTM"] ??
-                      company.metrics?.["peInclExtraTTM"] ??
-                      "—"}
-                  </p>
-                  <p className="text-slate-400">PB</p>
-                  <p>{company.metrics?.["pbAnnual"] ?? "—"}</p>
                 </div>
-                <div className="space-y-1 text-sm text-slate-200">
-                  <p className="text-slate-400">EPS (TTM)</p>
-                  <p>{company.metrics?.["epsBasicExclExtraItemsTTM"] ?? "—"}</p>
-                  <p className="text-slate-400">Rev QoQ</p>
-                  <p>{company.metrics?.["revenueGrowthQuarterlyYoy"] ?? "—"}</p>
-                  <p className="text-slate-400">Rev YoY</p>
-                  <p>{company.metrics?.["revenueGrowthTTMYoy"] ?? "—"}</p>
-                </div>
+
+                {/* Conditional Metrics */}
+                {company.profile?.industry === "Crypto" ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">Circulating Supply</p>
+                      <p className="text-xl font-mono text-text-main">
+                        {company.profile?.supply
+                          ? new Intl.NumberFormat("en-US", { notation: "compact" }).format(company.profile.supply)
+                          : "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">24h Volume</p>
+                      <p className="text-xl font-mono text-text-main">
+                        {company.profile?.volume
+                          ? formatCurrencyCompact(company.profile.volume)
+                          : "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">Type</p>
+                      <p className="text-xl font-mono text-text-main">Layer 1</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">P/E Ratio</p>
+                      <p className="text-xl font-mono text-text-main">
+                        {typeof company.metrics?.["peBasicExclExtraTTM"] === "number"
+                          ? (company.metrics["peBasicExclExtraTTM"] as number).toFixed(2)
+                          : "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">Div Yield</p>
+                      <p className="text-xl font-mono text-text-main">
+                        {typeof company.metrics?.["dividendYieldIndicatedAnnual"] === "number"
+                          ? `${(company.metrics["dividendYieldIndicatedAnnual"] as number).toFixed(2)}%`
+                          : "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-text-dim uppercase">Beta (5Y)</p>
+                      <p className="text-xl font-mono text-text-main">
+                        {typeof company.metrics?.["beta"] === "number"
+                          ? (company.metrics["beta"] as number).toFixed(2)
+                          : "1.05"}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Recent news</p>
-            <div className="mt-3 space-y-2 text-sm text-slate-200">
-              {company?.news?.slice(0, 5).map((n, idx) => (
-                <a
-                  key={idx}
-                  href={n.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-lg border border-white/5 bg-white/5 px-3 py-2 hover:border-emerald-400/60"
-                >
-                  <p className="font-semibold">{n.headline}</p>
-                  <p className="text-xs text-slate-400">
-                    {n.source} ·{" "}
-                    {n.datetime
-                      ? new Date(n.datetime * 1000).toLocaleDateString()
-                      : ""}
-                  </p>
-                </a>
-              ))}
-              {!company?.news?.length && (
-                <p className="text-xs text-slate-400">No recent headlines.</p>
-              )}
+        </div>
+
+        {/* Insights & Community Grid */}
+        <div className="grid gap-8 lg:grid-cols-2 mb-12">
+          {/* News Column */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-6 w-1 bg-gradient-to-b from-emerald-400 to-cyan-500 rounded-full" />
+              <h2 className="text-xl font-bold text-text-main">Latest News</h2>
             </div>
-          </div>
+            <NewsFeed symbol={symbol} initialNews={company?.news} />
+          </section>
+
+          {/* Social Column */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-6 w-1 bg-gradient-to-b from-purple-400 to-pink-500 rounded-full" />
+              <h2 className="text-xl font-bold text-text-main">Community Sentiment</h2>
+            </div>
+            <SocialFeed symbol={symbol} />
+          </section>
         </div>
 
         {/* Related + learn */}
@@ -529,7 +581,7 @@ export default function AssetPage() {
             )}
           </div>
         </div>
-      </div>
-    </main>
+      </div >
+    </main >
   );
 }

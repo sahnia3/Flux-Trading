@@ -110,14 +110,14 @@ func CompanyInfo() gin.HandlerFunc {
 	alphaKey := os.Getenv("ALPHAVANTAGE_API_KEY")
 	coingeckoKey := os.Getenv("COINGECKO_API_KEY")
 	cryptoMap := map[string]string{
-		"BTC": "bitcoin",
-		"ETH": "ethereum",
-		"SOL": "solana",
-		"AVAX": "avalanche-2",
-		"BNB": "binancecoin",
-		"XRP": "ripple",
-		"ADA": "cardano",
-		"DOT": "polkadot",
+		"BTC":   "bitcoin",
+		"ETH":   "ethereum",
+		"SOL":   "solana",
+		"AVAX":  "avalanche-2",
+		"BNB":   "binancecoin",
+		"XRP":   "ripple",
+		"ADA":   "cardano",
+		"DOT":   "polkadot",
 		"MATIC": "polygon",
 	}
 	return func(c *gin.Context) {
@@ -188,25 +188,82 @@ func CompanyInfo() gin.HandlerFunc {
 			}
 		}
 
-		// If still empty and symbol is a known crypto, try CoinGecko
-		if (len(profile) == 0 || profile["marketCapitalization"] == nil) && coingeckoKey != "" {
+		// If still empty and symbol is a known crypto, try CoinGecko (Rich Data)
+		if len(profile) == 0 || profile["marketCapitalization"] == nil {
 			if id, ok := cryptoMap[resolved]; ok {
-				var cg []struct {
-					Name       string  `json:"name"`
-					Symbol     string  `json:"symbol"`
-					MarketCap  float64 `json:"market_cap"`
-					Current    float64 `json:"current_price"`
+				fmt.Printf("[DEBUG] Checking Crypto: %s -> %s\n", resolved, id)
+				var cg struct {
+					Name        string `json:"name"`
+					Symbol      string `json:"symbol"`
+					Description struct {
+						En string `json:"en"`
+					} `json:"description"`
+					MarketData struct {
+						CurrentPrice struct {
+							USD float64 `json:"usd"`
+						} `json:"current_price"`
+						MarketCap struct {
+							USD float64 `json:"usd"`
+						} `json:"market_cap"`
+						TotalVolume struct {
+							USD float64 `json:"usd"`
+						} `json:"total_volume"`
+						CirculatingSupply float64 `json:"circulating_supply"`
+					} `json:"market_data"`
 				}
-				url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=%s&x_cg_demo_api_key=%s", id, coingeckoKey)
-				if err := fetchJSON(url, &cg); err == nil && len(cg) > 0 {
+
+				url := fmt.Sprintf("https://api.coingecko.com/api/v3/coins/%s?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false", id)
+				if coingeckoKey != "" {
+					url = fmt.Sprintf("%s&x_cg_demo_api_key=%s", url, coingeckoKey)
+				}
+
+				fmt.Printf("[DEBUG] Fetching URL: %s\n", url)
+				if err := fetchJSON(url, &cg); err == nil {
+					fmt.Println("[DEBUG] CoinGecko Success")
 					profile = map[string]interface{}{
-						"name":                 cg[0].Name,
-						"ticker":               resolved,
+						"name":                 cg.Name,
+						"ticker":               strings.ToUpper(cg.Symbol),
 						"industry":             "Crypto",
 						"currency":             "USD",
-						"marketCapitalization": cg[0].MarketCap,
-						"currentPrice":         cg[0].Current,
+						"marketCapitalization": cg.MarketData.MarketCap.USD / 1_000_000.0, // Millions
+						"currentPrice":         cg.MarketData.CurrentPrice.USD,
+						"description":          cg.Description.En, // Rich description
+						"volume":               cg.MarketData.TotalVolume.USD,
+						"supply":               cg.MarketData.CirculatingSupply,
 					}
+				} else {
+					fmt.Printf("[DEBUG] CoinGecko Error: %v\n", err)
+				}
+			}
+		}
+
+		// 3. Failsafe: DeFi Llama (Open API)
+		if len(profile) == 0 || profile["marketCapitalization"] == nil {
+			if id, ok := cryptoMap[resolved]; ok {
+				fmt.Printf("[DEBUG] Checking DeFi Llama Failsafe: %s\n", id)
+				var dl struct {
+					Name        string  `json:"name"`
+					Symbol      string  `json:"symbol"`
+					Description string  `json:"description"`
+					Mcap        float64 `json:"mcap"`
+					Logo        string  `json:"logo"`
+				}
+				url := fmt.Sprintf("https://api.llama.fi/protocol/%s", id)
+				if err := fetchJSON(url, &dl); err == nil && dl.Name != "" {
+					fmt.Println("[DEBUG] DeFi Llama Success")
+					profile = map[string]interface{}{
+						"name":                 dl.Name,
+						"ticker":               strings.ToUpper(dl.Symbol),
+						"industry":             "Crypto",
+						"currency":             "USD",
+						"marketCapitalization": dl.Mcap / 1_000_000.0,
+						"description":          dl.Description,
+						"logo":                 dl.Logo,
+						// Estimate volume/supply if missing? Or just leave nil.
+						// UI handles nil supply gracefully.
+					}
+				} else {
+					fmt.Printf("[DEBUG] DeFi Llama Error: %v\n", err)
 				}
 			}
 		}
@@ -216,28 +273,59 @@ func CompanyInfo() gin.HandlerFunc {
 		var metricsResp struct {
 			Metric map[string]interface{} `json:"metric"`
 		}
-		if err := fetchJSON(metricsURL, &metricsResp); err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "metrics error"})
-			return
-		}
+		// Best effort - ignore errors as Finnhub often fails for crypto
+		_ = fetchJSON(metricsURL, &metricsResp)
 
 		// News (last 7 days)
 		to := time.Now()
 		from := to.Add(-7 * 24 * time.Hour)
-		newsURL := fmt.Sprintf(
-			"https://finnhub.io/api/v1/company-news?symbol=%s&from=%s&to=%s&token=%s",
-			resolved, from.Format("2006-01-02"), to.Format("2006-01-02"), apiKey,
-		)
 		var news []map[string]interface{}
-		_ = fetchJSON(newsURL, &news) // non-fatal if fails
+
+		// If Crypto, use CryptoCompare (High quality, free)
+		if _, isCrypto := cryptoMap[resolved]; isCrypto {
+			cryptoNewsURL := "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
+			var ccNews struct {
+				Data []struct {
+					Id        string `json:"id"`
+					Guid      string `json:"guid"`
+					Published int64  `json:"published_on"`
+					Title     string `json:"title"`
+					Url       string `json:"url"`
+					Source    string `json:"source"`
+					Body      string `json:"body"`
+				} `json:"Data"`
+			}
+			if err := fetchJSON(cryptoNewsURL, &ccNews); err == nil {
+				for _, n := range ccNews.Data {
+					// Filter vaguely if needed, but for now show global crypto news
+					news = append(news, map[string]interface{}{
+						"headline": n.Title,
+						"url":      n.Url,
+						"datetime": n.Published,
+						"source":   n.Source,
+						"summary":  n.Body,
+					})
+					if len(news) >= 8 {
+						break
+					}
+				}
+			}
+		} else {
+			// Stock News
+			newsURL := fmt.Sprintf(
+				"https://finnhub.io/api/v1/company-news?symbol=%s&from=%s&to=%s&token=%s",
+				resolved, from.Format("2006-01-02"), to.Format("2006-01-02"), apiKey,
+			)
+			_ = fetchJSON(newsURL, &news)
+		}
 
 		// If no news and we have Alpha key, try Alpha Vantage news sentiment (stocks only)
 		if len(news) == 0 && alphaKey != "" {
 			var avNews struct {
 				Feed []struct {
-					Title string `json:"title"`
-					URL   string `json:"url"`
-					Time  string `json:"time_published"`
+					Title  string `json:"title"`
+					URL    string `json:"url"`
+					Time   string `json:"time_published"`
 					Source string `json:"source"`
 				} `json:"feed"`
 			}

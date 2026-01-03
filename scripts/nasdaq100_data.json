@@ -1,0 +1,507 @@
+[
+  {
+    "symbol": "AAPL",
+    "description": "Apple Inc.",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ABNB",
+    "description": "Airbnb",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "ADBE",
+    "description": "Adobe Inc.",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ADI",
+    "description": "Analog Devices",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ADP",
+    "description": "Automatic Data Processing",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "ADSK",
+    "description": "Autodesk",
+    "type": "Technology"
+  },
+  {
+    "symbol": "AEP",
+    "description": "American Electric Power",
+    "type": "Utilities"
+  },
+  {
+    "symbol": "ALNY",
+    "description": "Alnylam Pharmaceuticals",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "AMAT",
+    "description": "Applied Materials",
+    "type": "Technology"
+  },
+  {
+    "symbol": "AMD",
+    "description": "Advanced Micro Devices",
+    "type": "Technology"
+  },
+  {
+    "symbol": "AMGN",
+    "description": "Amgen",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "AMZN",
+    "description": "Amazon",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "APP",
+    "description": "AppLovin",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ARM",
+    "description": "Arm Holdings",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ASML",
+    "description": "ASML Holding",
+    "type": "Technology"
+  },
+  {
+    "symbol": "AVGO",
+    "description": "Broadcom",
+    "type": "Technology"
+  },
+  {
+    "symbol": "AXON",
+    "description": "Axon Enterprise",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "AZN",
+    "description": "AstraZeneca",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "BKNG",
+    "description": "Booking Holdings",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "BKR",
+    "description": "Baker Hughes",
+    "type": "Energy"
+  },
+  {
+    "symbol": "CCEP",
+    "description": "Coca-Cola Europacific Partners",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "CDNS",
+    "description": "Cadence Design Systems",
+    "type": "Technology"
+  },
+  {
+    "symbol": "CEG",
+    "description": "Constellation Energy",
+    "type": "Utilities"
+  },
+  {
+    "symbol": "CHTR",
+    "description": "Charter Communications",
+    "type": "Telecommunications"
+  },
+  {
+    "symbol": "CMCSA",
+    "description": "Comcast",
+    "type": "Telecommunications"
+  },
+  {
+    "symbol": "COST",
+    "description": "Costco",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "CPRT",
+    "description": "Copart",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "CRWD",
+    "description": "CrowdStrike",
+    "type": "Technology"
+  },
+  {
+    "symbol": "CSCO",
+    "description": "Cisco",
+    "type": "Telecommunications"
+  },
+  {
+    "symbol": "CSGP",
+    "description": "CoStar Group",
+    "type": "Real Estate"
+  },
+  {
+    "symbol": "CSX",
+    "description": "CSX Corporation",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "CTAS",
+    "description": "Cintas",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "CTSH",
+    "description": "Cognizant",
+    "type": "Technology"
+  },
+  {
+    "symbol": "DASH",
+    "description": "DoorDash",
+    "type": "Technology"
+  },
+  {
+    "symbol": "DDOG",
+    "description": "Datadog",
+    "type": "Technology"
+  },
+  {
+    "symbol": "DXCM",
+    "description": "DexCom",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "EA",
+    "description": "Electronic Arts",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "EXC",
+    "description": "Exelon",
+    "type": "Utilities"
+  },
+  {
+    "symbol": "FANG",
+    "description": "Diamondback Energy",
+    "type": "Energy"
+  },
+  {
+    "symbol": "FAST",
+    "description": "Fastenal",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "FER",
+    "description": "Ferrovial",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "FTNT",
+    "description": "Fortinet",
+    "type": "Technology"
+  },
+  {
+    "symbol": "GEHC",
+    "description": "GE HealthCare",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "GILD",
+    "description": "Gilead Sciences",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "GOOG",
+    "description": "Alphabet Inc. (Class C)",
+    "type": "Technology"
+  },
+  {
+    "symbol": "GOOGL",
+    "description": "Alphabet Inc. (Class A)",
+    "type": "Technology"
+  },
+  {
+    "symbol": "HON",
+    "description": "Honeywell",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "IDXX",
+    "description": "Idexx Laboratories",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "INSM",
+    "description": "Insmed Incorporated",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "INTC",
+    "description": "Intel",
+    "type": "Technology"
+  },
+  {
+    "symbol": "INTU",
+    "description": "Intuit",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ISRG",
+    "description": "Intuitive Surgical",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "KDP",
+    "description": "Keurig Dr Pepper",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "KHC",
+    "description": "Kraft Heinz",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "KLAC",
+    "description": "KLA Corporation",
+    "type": "Technology"
+  },
+  {
+    "symbol": "LIN",
+    "description": "Linde plc",
+    "type": "Basic Materials"
+  },
+  {
+    "symbol": "LRCX",
+    "description": "Lam Research",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MAR",
+    "description": "Marriott International",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "MCHP",
+    "description": "Microchip Technology",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MDLZ",
+    "description": "Mondelez International",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "MELI",
+    "description": "Mercado Libre",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "META",
+    "description": "Meta Platforms",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MNST",
+    "description": "Monster Beverage",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "MPWR",
+    "description": "Monolithic Power Systems",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MRVL",
+    "description": "Marvell Technology",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MSFT",
+    "description": "Microsoft",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MSTR",
+    "description": "MicroStrategy",
+    "type": "Technology"
+  },
+  {
+    "symbol": "MU",
+    "description": "Micron Technology",
+    "type": "Technology"
+  },
+  {
+    "symbol": "NFLX",
+    "description": "Netflix, Inc.",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "NVDA",
+    "description": "Nvidia",
+    "type": "Technology"
+  },
+  {
+    "symbol": "NXPI",
+    "description": "NXP Semiconductors",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ODFL",
+    "description": "Old Dominion Freight Line",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "ORLY",
+    "description": "O'Reilly Automotive",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "PANW",
+    "description": "Palo Alto Networks",
+    "type": "Technology"
+  },
+  {
+    "symbol": "PAYX",
+    "description": "Paychex",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "PCAR",
+    "description": "Paccar",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "PDD",
+    "description": "PDD Holdings",
+    "type": "Technology"
+  },
+  {
+    "symbol": "PEP",
+    "description": "PepsiCo",
+    "type": "Consumer Staples"
+  },
+  {
+    "symbol": "PLTR",
+    "description": "Palantir Technologies",
+    "type": "Technology"
+  },
+  {
+    "symbol": "PYPL",
+    "description": "PayPal",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "QCOM",
+    "description": "Qualcomm",
+    "type": "Technology"
+  },
+  {
+    "symbol": "REGN",
+    "description": "Regeneron Pharmaceuticals",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "ROP",
+    "description": "Roper Technologies",
+    "type": "Technology"
+  },
+  {
+    "symbol": "ROST",
+    "description": "Ross Stores",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "SBUX",
+    "description": "Starbucks",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "SHOP",
+    "description": "Shopify",
+    "type": "Technology"
+  },
+  {
+    "symbol": "SNPS",
+    "description": "Synopsys",
+    "type": "Technology"
+  },
+  {
+    "symbol": "STX",
+    "description": "Seagate Technology",
+    "type": "Technology"
+  },
+  {
+    "symbol": "TEAM",
+    "description": "Atlassian",
+    "type": "Technology"
+  },
+  {
+    "symbol": "TMUS",
+    "description": "T-Mobile US",
+    "type": "Telecommunications"
+  },
+  {
+    "symbol": "TRI",
+    "description": "Thomson Reuters",
+    "type": "Technology"
+  },
+  {
+    "symbol": "TSLA",
+    "description": "Tesla, Inc.",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "TTWO",
+    "description": "Take-Two Interactive",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "TXN",
+    "description": "Texas Instruments",
+    "type": "Technology"
+  },
+  {
+    "symbol": "VRSK",
+    "description": "Verisk Analytics",
+    "type": "Industrials"
+  },
+  {
+    "symbol": "VRTX",
+    "description": "Vertex Pharmaceuticals",
+    "type": "Health Care"
+  },
+  {
+    "symbol": "WBD",
+    "description": "Warner Bros. Discovery",
+    "type": "Consumer Discretionary"
+  },
+  {
+    "symbol": "WDAY",
+    "description": "Workday, Inc.",
+    "type": "Technology"
+  },
+  {
+    "symbol": "WDC",
+    "description": "Western Digital",
+    "type": "Technology"
+  },
+  {
+    "symbol": "XEL",
+    "description": "Xcel Energy",
+    "type": "Utilities"
+  },
+  {
+    "symbol": "ZS",
+    "description": "Zscaler",
+    "type": "Technology"
+  }
+]

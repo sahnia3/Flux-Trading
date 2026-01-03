@@ -26,9 +26,9 @@ const categories = [
 ] as const;
 
 const baseIndexPrices: Record<string, number> = {
-  SPX: 5250.0,
-  NDX: 18500.0,
-  DJI: 39650.0,
+  "^GSPC": 5250.0,
+  "^IXIC": 18500.0,
+  "^DJI": 39650.0,
 };
 
 const baseStockPrices: Record<string, number> = {
@@ -38,7 +38,7 @@ const baseStockPrices: Record<string, number> = {
   MSFT: 330,
   TSLA: 54, // fallback if WS missing
   GOOGL: 140,
-  AMD: 110,
+  AMD: 160,
 };
 
 const mockVolumes: Record<string, string> = {
@@ -49,13 +49,16 @@ const mockVolumes: Record<string, string> = {
   TSLA: "120M",
   AMD: "82M",
   GOOGL: "28M",
+  "^GSPC": "—",
+  "^IXIC": "—",
+  "^DJI": "—",
 };
 
 const featuredMap: Record<string, { symbol: string; name: string }[]> = {
   Indices: [
-    { symbol: "SPX", name: "S&P 500" },
-    { symbol: "NDX", name: "Nasdaq 100" },
-    { symbol: "DJI", name: "Dow 30" },
+    { symbol: "^GSPC", name: "S&P 500" },
+    { symbol: "^IXIC", name: "Nasdaq 100" },
+    { symbol: "^DJI", name: "Dow 30" },
   ],
   "US stocks": [
     { symbol: "AAPL", name: "Apple" },
@@ -88,14 +91,14 @@ const featuredMap: Record<string, { symbol: string; name: string }[]> = {
 };
 
 const worldIndices = [
-  { symbol: "NI225", name: "Nikkei 225", price: 50526.87, change: -0.44 },
-  { symbol: "UKX", name: "FTSE 100", price: 9862.45, change: -0.08 },
-  { symbol: "DAX", name: "DAX", price: 18450.33, change: 0.12 },
-  { symbol: "PX1", name: "CAC 40", price: 8100.16, change: -0.04 },
-  { symbol: "SSE", name: "SSE Comp", price: 3965.27, change: 0.04 },
-  { symbol: "HSI", name: "Hang Seng", price: 17650.22, change: 0.18 },
-  { symbol: "NIFTY50", name: "Nifty 50", price: 22200.0, change: 0.15 },
-  { symbol: "BSESN", name: "BSE Sensex", price: 73500.0, change: 0.10 },
+  { symbol: "^N225", name: "Nikkei 225", price: 38000.0, change: -0.44 },
+  { symbol: "^FTSE", name: "FTSE 100", price: 8200.0, change: -0.08 },
+  { symbol: "^GDAXI", name: "DAX", price: 18400.0, change: 0.12 },
+  { symbol: "^FCHI", name: "CAC 40", price: 8100.0, change: -0.04 },
+  { symbol: "000001.SS", name: "SSE Comp", price: 3050.0, change: 0.04 }, // Yahoo/Finnhub style
+  { symbol: "^HSI", name: "Hang Seng", price: 17650.0, change: 0.18 },
+  { symbol: "^NSEI", name: "Nifty 50", price: 22200.0, change: 0.15 },
+  { symbol: "^BSESN", name: "BSE Sensex", price: 73500.0, change: 0.10 },
 ];
 
 const mockSpark = (base = 100, points = 20) =>
@@ -135,8 +138,6 @@ export default function MarketsPage() {
   useEffect(() => {
     let socket: WebSocket | null = null;
     let retryMs = 2000;
-    const alphaKey = process.env.NEXT_PUBLIC_ALPHA_KEY;
-    const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_KEY;
     const connect = () => {
       setStatus("connecting");
       socket = new WebSocket(wsUrl);
@@ -206,7 +207,10 @@ export default function MarketsPage() {
   useEffect(() => {
     const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_KEY;
     if (!finnhubKey) return;
-    const symbols = ["TSLA", "SPX", "NDX", "DJI"];
+    // Added NIFTY50 (NSE:NIFTY) and BSESN (BSE:SENSEX) - using common Finnhub/Alpha tickers or proxies
+    // Note: Free tier might not support all, but this attempts to fetch them.
+    // Added NIFTY50 (^NSEI) and BSESN (^BSESN) and Major US Indices
+    const symbols = ["TSLA", "^GSPC", "^IXIC", "^DJI", "^NSEI", "^BSESN"];
     let cancelled = false;
 
     const fetchFinnhub = async (sym: string) => {
@@ -267,27 +271,26 @@ export default function MarketsPage() {
       volume: alphaQuotes[s.symbol]?.volume ?? mockVolumes[s.symbol] ?? "—",
     }));
 
-  const changeColor = (v: number) => (v >= 0 ? "text-emerald-300" : "text-rose-300");
+  const changeColor = (v: number) => (v >= 0 ? "text-up" : "text-down");
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main className="min-h-screen pt-24 pb-20">
+      <div className="mx-auto max-w-6xl px-4">
+        <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Markets</p>
-            <h1 className="text-3xl font-semibold text-slate-50">Markets, everywhere</h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-xs uppercase tracking-[0.2em] text-primary">Markets</p>
+            <h1 className="text-3xl font-bold text-text-main">Markets, everywhere</h1>
+            <p className="text-sm text-text-muted">
               Indices, stocks, crypto, futures, FX — all in one place.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 text-xs text-text-muted">
             <span
-              className={`h-2 w-2 rounded-full ${
-                status === "open" ? "bg-emerald-400" : status === "connecting" ? "bg-amber-400" : "bg-rose-400"
-              }`}
+              className={`h-2 w-2 rounded-full ${status === "open" ? "bg-up" : status === "connecting" ? "bg-amber-400" : "bg-down"
+                }`}
             />
             <span>Live</span>
-            <span className="rounded-full bg-white/5 px-2 py-1 text-[11px] text-slate-300">
+            <span className="rounded-full bg-white/5 px-2 py-1 text-[11px] text-text-dim">
               Last update: {lastUpdated || "—"}
             </span>
           </div>
@@ -304,33 +307,33 @@ export default function MarketsPage() {
         />
 
         {/* Featured strip */}
-        <section className="mb-6 rounded-3xl border border-white/10 bg-slate-900/80 p-4 shadow-xl shadow-black/40">
+        <section className="glass mb-8 rounded-3xl p-6">
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2 rounded-2xl border border-white/5 bg-slate-900/70 p-4">
-              <p className="text-sm font-semibold text-slate-50">
-                {heroData[0]?.symbol ?? "—"} • {heroData[0]?.name ?? "Featured"}
+            <div className="lg:col-span-2 rounded-2xl border border-white/5 bg-surface p-6">
+              <p className="text-sm font-semibold text-text-main">
+                {heroData[0]?.symbol.replace("^", "") ?? "—"} • {heroData[0]?.name ?? "Featured"}
               </p>
-              <p className="text-3xl font-semibold text-slate-50">
+              <p className="text-3xl font-bold text-text-main my-2">
                 {heroData[0]?.price ? heroData[0].price.toLocaleString() : "—"}
               </p>
               <p className={`text-sm ${changeColor(heroData[0]?.change ?? 0)}`}>
                 {heroData[0]?.change >= 0 ? "▲" : "▼"} {Math.abs(heroData[0]?.change ?? 0).toFixed(2)}%
               </p>
-              <div className="mt-3 h-32 rounded-xl border border-white/5 bg-slate-950/40">
+              <div className="mt-4 h-32 rounded-xl bg-black/20 overflow-hidden">
                 {heroData[0]?.spark && (
                   <MarketSparkline
                     data={heroData[0].spark.map((s) => ({ time: s.time, value: s.value }))}
                     height={120}
-                    color={heroData[0].change >= 0 ? "#22c55e" : "#ef4444"}
+                    color={heroData[0].change >= 0 ? "#10b981" : "#f43f5e"}
                   />
                 )}
               </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               {heroData.slice(1, 5).map((h) => (
                 <MarketPillCard
                   key={h.symbol}
-                  symbol={h.symbol}
+                  symbol={h.symbol.replace("^", "")}
                   name={h.name}
                   value={h.price ? h.price.toLocaleString() : "—"}
                   change={h.change ?? 0}
@@ -343,19 +346,19 @@ export default function MarketsPage() {
         </section>
 
         {/* Indices */}
-        <section ref={(el) => (sectionsRef.current["Indices"] = el)} className="mb-10">
+        <section ref={(el) => { sectionsRef.current["Indices"] = el; }} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">Indices</h2>
-            <p className="text-xs text-slate-400">Major + world indices</p>
+            <h2 className="text-xl font-semibold text-text-main">Indices</h2>
+            <p className="text-xs text-text-muted">Major + world indices</p>
           </div>
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-200">World indices</p>
-              <a href="#world-indices" className="text-xs text-emerald-300 hover:underline">
+              <p className="text-sm font-semibold text-text-dim">World indices</p>
+              <a href="#world-indices" className="text-xs text-primary hover:underline">
                 View all →
               </a>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {worldIndices.map((w) => (
                 <MarketTileCard
                   key={w.symbol}
@@ -372,10 +375,10 @@ export default function MarketsPage() {
         </section>
 
         {/* US stocks */}
-        <section ref={(el) => (sectionsRef.current["US stocks"] = el)} className="mb-10">
+        <section ref={(el) => { sectionsRef.current["US stocks"] = el; }} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">US stocks</h2>
-            <a href="/stocks" className="text-xs text-emerald-300 hover:underline">
+            <h2 className="text-xl font-semibold text-text-main">US stocks</h2>
+            <a href="/stocks" className="text-xs text-primary hover:underline">
               View all US stocks →
             </a>
           </div>
@@ -394,7 +397,7 @@ export default function MarketsPage() {
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-200">Community trends</p>
+              <p className="mb-2 text-sm font-semibold text-text-dim">Community trends</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {["AMD", "AMZN", "TSLA", "AAPL"].map((s) => (
                   <MarketTileCard
@@ -410,7 +413,7 @@ export default function MarketsPage() {
               </div>
             </div>
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-200">Highest volume</p>
+              <p className="mb-2 text-sm font-semibold text-text-dim">Highest volume</p>
               <MarketTable
                 rows={topTableRows(featuredMap["US stocks"]).map((r) => ({
                   ...r,
@@ -426,19 +429,19 @@ export default function MarketsPage() {
 
         {/* World stocks */}
         <section
-          ref={(el) => (sectionsRef.current["World stocks"] = el)}
+          ref={(el) => { sectionsRef.current["World stocks"] = el; }}
           className="mb-10"
           id="world-indices"
         >
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">World stocks</h2>
-            <p className="text-xs text-slate-400">Regional highlights (mocked)</p>
+            <h2 className="text-xl font-semibold text-text-main">World stocks</h2>
+            <p className="text-xs text-text-muted">Regional highlights (mocked)</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {["Europe", "Asia", "Americas"].map((r) => (
               <span
                 key={r}
-                className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300"
+                className="rounded-full bg-surface-hover px-3 py-1 text-xs text-text-main"
               >
                 {r}
               </span>
@@ -473,10 +476,12 @@ export default function MarketsPage() {
         </section>
 
         {/* Crypto */}
-        <section ref={(el) => (sectionsRef.current["Crypto"] = el)} className="mb-10">
+        <section ref={(el) => { sectionsRef.current["Crypto"] = el; }} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">Crypto</h2>
-            <p className="text-xs text-slate-400">Top coins with live prices</p>
+            <h2 className="text-xl font-semibold text-text-main">Crypto</h2>
+            <a href="/crypto" className="text-xs text-primary hover:underline">
+              View all crypto →
+            </a>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {featuredMap.Crypto.map((c) => (
@@ -507,10 +512,10 @@ export default function MarketsPage() {
         </section>
 
         {/* Futures */}
-        <section ref={(el) => (sectionsRef.current["Futures"] = el)} className="mb-10">
+        <section ref={(el) => { sectionsRef.current["Futures"] = el; }} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">Futures</h2>
-            <p className="text-xs text-slate-400">Energy & metals (mock)</p>
+            <h2 className="text-xl font-semibold text-text-main">Futures</h2>
+            <p className="text-xs text-text-muted">Energy & metals (mock)</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {["CL", "NG", "GC", "HG"].map((s) => (
@@ -528,10 +533,10 @@ export default function MarketsPage() {
         </section>
 
         {/* Forex */}
-        <section ref={(el) => (sectionsRef.current["Forex"] = el)} className="mb-10">
+        <section ref={(el) => { sectionsRef.current["Forex"] = el; }} className="mb-10">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-50">Forex</h2>
-            <p className="text-xs text-slate-400">Top pairs (mock)</p>
+            <h2 className="text-xl font-semibold text-text-main">Forex</h2>
+            <p className="text-xs text-text-muted">Top pairs (mock)</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {featuredMap.Forex.map((f) => (
@@ -550,12 +555,12 @@ export default function MarketsPage() {
 
         {/* Placeholders */}
         {["Government bonds", "Corporate bonds", "ETFs", "Economy"].map((sec) => (
-          <section key={sec} ref={(el) => (sectionsRef.current[sec] = el)} className="mb-8">
+          <section key={sec} ref={(el) => { sectionsRef.current[sec] = el; }} className="mb-8">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-50">{sec}</h2>
-              <span className="text-xs text-slate-400">TODO: hook real data</span>
+              <h2 className="text-lg font-semibold text-text-main">{sec}</h2>
+              <span className="text-xs text-text-muted">TODO: hook real data</span>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
+            <div className="glass p-4 text-sm text-text-dim rounded-2xl">
               Placeholder cards/tables for {sec}. Add data when available.
             </div>
           </section>

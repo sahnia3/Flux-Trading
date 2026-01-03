@@ -15,7 +15,7 @@ export function MarketCategoryNav({ categories, onSelect, active }: Props) {
   return (
     <div
       ref={containerRef}
-      className="mb-4 flex gap-2 overflow-x-auto rounded-full bg-slate-900/80 p-2 ring-1 ring-white/5"
+      className="glass mb-8 flex flex-wrap gap-2 rounded-2xl p-2"
     >
       {categories.map((c) => (
         <button
@@ -24,9 +24,10 @@ export function MarketCategoryNav({ categories, onSelect, active }: Props) {
             setCurrent(c);
             onSelect(c);
           }}
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${
-            current === c ? "bg-emerald-500 text-emerald-900" : "bg-slate-800 text-slate-200"
-          }`}
+          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition duration-300 ${current === c
+            ? "bg-primary text-white shadow-lg shadow-primary/25"
+            : "bg-transparent text-text-muted hover:bg-white/5 hover:text-text-main"
+            }`}
         >
           {c}
         </button>

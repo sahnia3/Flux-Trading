@@ -19,7 +19,7 @@ type Props = {
   hideVolume?: boolean;
 };
 
-const changeColor = (v: number) => (v >= 0 ? "text-emerald-300" : "text-rose-300");
+const changeColor = (v: number) => (v >= 0 ? "text-up" : "text-down");
 
 export function MarketTable({ rows, sortable = ["change", "volume"], label, hideVolume }: Props) {
   const [sortKey, setSortKey] = useState<"change" | "volume" | null>(null);
@@ -35,17 +35,16 @@ export function MarketTable({ rows, sortable = ["change", "volume"], label, hide
   }, [rows, sortKey, hideVolume]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/40">
+    <div className="glass overflow-hidden rounded-2xl border-none">
       {label && (
-        <div className="flex items-center justify-between bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-300">
+        <div className="flex items-center justify-between bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
           <span>{label}</span>
           <div className="flex gap-2 text-[11px]">
             {sortable.includes("change") && (
               <button
                 onClick={() => setSortKey("change")}
-                className={`rounded-full px-2 py-1 ${
-                  sortKey === "change" ? "bg-emerald-500/20 text-emerald-200" : "bg-white/5 text-slate-300"
-                }`}
+                className={`rounded-full px-2 py-1 transition ${sortKey === "change" ? "bg-primary/20 text-primary" : "bg-white/5 text-text-dim hover:text-text-main"
+                  }`}
               >
                 Sort % Change
               </button>
@@ -53,9 +52,8 @@ export function MarketTable({ rows, sortable = ["change", "volume"], label, hide
             {!hideVolume && sortable.includes("volume") && (
               <button
                 onClick={() => setSortKey("volume")}
-                className={`rounded-full px-2 py-1 ${
-                  sortKey === "volume" ? "bg-emerald-500/20 text-emerald-200" : "bg-white/5 text-slate-300"
-                }`}
+                className={`rounded-full px-2 py-1 transition ${sortKey === "volume" ? "bg-primary/20 text-primary" : "bg-white/5 text-text-dim hover:text-text-main"
+                  }`}
               >
                 Sort Volume
               </button>
@@ -63,7 +61,7 @@ export function MarketTable({ rows, sortable = ["change", "volume"], label, hide
           </div>
         </div>
       )}
-      <div className="grid grid-cols-5 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-300">
+      <div className="grid grid-cols-5 bg-black/20 px-4 py-3 text-xs uppercase tracking-[0.2em] text-text-dim font-semibold border-b border-white/5">
         <span>Symbol</span>
         <span>Name</span>
         <span>Last</span>
@@ -75,17 +73,17 @@ export function MarketTable({ rows, sortable = ["change", "volume"], label, hide
           <Link
             key={r.symbol}
             href={`/asset/${r.symbol}`}
-            className="grid grid-cols-5 items-center px-4 py-3 text-sm text-slate-100 transition hover:bg-white/5"
+            className="grid grid-cols-5 items-center px-4 py-3 text-sm text-text-main transition hover:bg-white/5"
           >
-            <span className="font-semibold">{r.symbol}</span>
-            <span className="text-slate-300">{r.name ?? "—"}</span>
-            <span>{r.price?.toLocaleString?.() ?? r.price}</span>
-            <span className={changeColor(r.change)}>{r.change?.toFixed?.(2) ?? r.change}%</span>
-            {!hideVolume && <span className="text-slate-400">{r.volume ?? "—"}</span>}
+            <span className="font-bold">{r.symbol}</span>
+            <span className="text-text-muted">{r.name ?? "—"}</span>
+            <span className="font-medium">{r.price?.toLocaleString?.() ?? r.price}</span>
+            <span className={`font-semibold ${changeColor(r.change)}`}>{r.change?.toFixed?.(2) ?? r.change}%</span>
+            {!hideVolume && <span className="text-text-dim">{r.volume ?? "—"}</span>}
           </Link>
         ))}
         {!rows.length && (
-          <div className="px-4 py-6 text-center text-sm text-slate-400">No data available.</div>
+          <div className="px-4 py-6 text-center text-sm text-text-muted">No data available.</div>
         )}
       </div>
     </div>
