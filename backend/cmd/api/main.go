@@ -17,8 +17,9 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	appdb "github.com/sahniaditya/flux-backend/db"
-	"github.com/sahniaditya/flux-backend/handlers" // Import handlers
+	"github.com/sahniaditya/flux-backend/handlers"
 	"github.com/sahniaditya/flux-backend/prices"
+	"github.com/sahniaditya/flux-backend/worker"
 )
 
 func main() {
@@ -81,6 +82,10 @@ func main() {
 		CryptoInterval: 10 * time.Second,
 		StockInterval:  45 * time.Second,
 	})
+
+	// Start the background order execution worker
+	worker.Start(db, feed)
+
 	feed.Start(context.Background())
 
 	r := gin.Default()
@@ -113,6 +118,7 @@ func main() {
 	r.POST("/trade/buy", auth, handlers.TradeBuy(db))
 	r.POST("/trade/sell", auth, handlers.TradeSell(db))
 	r.POST("/wallet/topup", auth, handlers.TopUpWallet(db))
+	r.POST("/orders", auth, handlers.PlaceOrder(db, feed)) // New endpoint with validation
 	r.GET("/portfolio", auth, handlers.GetPortfolio(db))
 	// Market data + news (public)
 	r.GET("/api/market-data/:symbol/:interval", handlers.MarketData())

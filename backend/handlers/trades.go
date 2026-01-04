@@ -26,7 +26,7 @@ func GetPortfolio(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.QueryContext(c,
-			`SELECT symbol, quantity, average_buy_price FROM holdings WHERE user_id=$1 ORDER BY symbol`, userID)
+			`SELECT symbol, quantity, average_buy_price FROM holdings WHERE user_id=$1 AND quantity > 0 ORDER BY symbol`, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "holdings lookup failed"})
 			return

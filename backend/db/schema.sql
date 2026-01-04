@@ -41,3 +41,22 @@ CREATE TABLE IF NOT EXISTS transactions (
     total_amount DECIMAL(20, 2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+
+-- 5. Orders (Limit, Stop, Market)
+CREATE TABLE IF NOT EXISTS orders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(10) NOT NULL,
+    side VARCHAR(4) NOT NULL CHECK (side IN ('buy', 'sell')),
+    type VARCHAR(10) NOT NULL CHECK (type IN ('market', 'limit', 'stop')),
+    quantity DECIMAL(20, 8) NOT NULL,
+    price DECIMAL(20, 2), -- Limit or Stop price. Null for market orders.
+    status VARCHAR(10) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'filled', 'cancelled', 'rejected')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    executed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);

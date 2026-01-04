@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AssetChart } from "@/components/AssetChart";
 import { NewsFeed } from "@/components/NewsFeed";
 import { SocialFeed } from "@/components/SocialFeed";
+import { TradeWidget } from "@/components/TradeWidget";
 
 type Ticker = {
   symbol: string;
@@ -139,11 +140,6 @@ export default function AssetPage() {
 
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
-  const [token, setToken] = useState<string | null>(() =>
-    typeof window !== "undefined" ? sessionStorage.getItem("flux_token") : null,
-  );
-  const [tradeQty, setTradeQty] = useState(1);
-  const [tradeMessage, setTradeMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
@@ -348,11 +344,7 @@ export default function AssetPage() {
     };
   }, [symbol, finnhubKey]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = sessionStorage.getItem("flux_token");
-    if (stored) setToken(stored);
-  }, []);
+
 
   const up = (ticker?.change_24h ?? 0) >= 0;
   const statusText = () => {
@@ -458,7 +450,7 @@ export default function AssetPage() {
             showRSI={showRSI}
             latestPrice={ticker?.price}
           />
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_2fr] items-start">
             <div className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/70 p-4">
               <div>
                 <p className="text-sm text-slate-400">Last price</p>
@@ -483,94 +475,18 @@ export default function AssetPage() {
             </div>
 
             <div className="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Quick trade</p>
-              <div className="mt-2 flex flex-col gap-2">
-                <label className="text-slate-300">Quantity</label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400"
-                  value={tradeQty}
-                  min={0.0001}
-                  step={0.0001}
-                  onChange={(e) => setTradeQty(Number(e.target.value))}
-                />
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-rose-50 hover:bg-rose-400 disabled:opacity-50"
-                    disabled={!token || !ticker || tradeQty <= 0}
-                    onClick={async () => {
-                      if (!ticker) return;
-                      try {
-                        setTradeMessage("");
-                        const res = await fetch(`${apiBase}/trade/buy`, {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                          },
-                          body: JSON.stringify({
-                            symbol,
-                            quantity: tradeQty,
-                            price: ticker.price,
-                          }),
-                        });
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}));
-                          throw new Error((err as { error?: string }).error || "Buy failed");
-                        }
-                        setTradeMessage("Buy executed");
-                      } catch (err) {
-                        setTradeMessage(err instanceof Error ? err.message : "Buy failed");
-                      }
-                    }}
-                  >
-                    Buy
-                  </button>
-                  <button
-                    className="flex-1 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-400 disabled:opacity-50"
-                    disabled={!token || !ticker || tradeQty <= 0}
-                    onClick={async () => {
-                      if (!ticker) return;
-                      try {
-                        setTradeMessage("");
-                        const res = await fetch(`${apiBase}/trade/sell`, {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                          },
-                          body: JSON.stringify({
-                            symbol,
-                            quantity: tradeQty,
-                            price: ticker.price,
-                          }),
-                        });
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}));
-                          throw new Error((err as { error?: string }).error || "Sell failed");
-                        }
-                        setTradeMessage("Sell executed");
-                      } catch (err) {
-                        setTradeMessage(err instanceof Error ? err.message : "Sell failed");
-                      }
-                    }}
-                  >
-                    Sell
-                  </button>
-                </div>
-                {!token && (
-                  <p className="text-xs text-amber-300">
-                    Login required. Use the nav profile menu to sign in.
-                  </p>
-                )}
-                {tradeMessage && <p className="text-xs text-slate-300">{tradeMessage}</p>}
-                {(!ticker || !hydrated) && (
-                  <p className="text-xs text-slate-400" suppressHydrationWarning>
-                    Waiting for live USD price… ensure WS feed covers this symbol or set
-                    NEXT_PUBLIC_FINNHUB_KEY.
-                  </p>
-                )}
-              </div>
+              <TradeWidget
+                // Universal cleanup: Take text after last colon, then strip currency suffixes
+                symbol={symbol.split(':').pop()?.replace(/(USDT|USD|EUR)$/, "") || symbol}
+                initialPrice={ticker?.price}
+                className="!bg-transparent !p-0 !border-0"
+              />
+              {(!ticker || !hydrated) && (
+                <p className="text-xs text-slate-400 mt-4" suppressHydrationWarning>
+                  Waiting for live USD price… ensure WS feed covers this symbol or set
+                  NEXT_PUBLIC_FINNHUB_KEY.
+                </p>
+              )}
             </div>
           </div>
         </div>

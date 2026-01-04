@@ -56,3 +56,23 @@ type HoldingEntry struct {
 	Quantity        float64 `json:"quantity"`
 	AverageBuyPrice float64 `json:"average_buy_price"`
 }
+
+type Order struct {
+	ID        string   `json:"id"`
+	UserID    string   `json:"user_id"`
+	Symbol    string   `json:"symbol"`
+	Side      string   `json:"side"` // buy, sell
+	Type      string   `json:"type"` // market, limit, stop
+	Quantity  float64  `json:"quantity"`
+	Price     *float64 `json:"price,omitempty"` // For limit/stop
+	Status    string   `json:"status"`          // pending, filled, cancelled
+	CreatedAt string   `json:"created_at"`
+}
+
+type PlaceOrderRequest struct {
+	Symbol   string   `json:"symbol" binding:"required"`
+	Side     string   `json:"side" binding:"required,oneof=buy sell"`
+	Type     string   `json:"type" binding:"required,oneof=market limit stop"`
+	Quantity float64  `json:"quantity" binding:"required,gt=0"`
+	Price    *float64 `json:"price"` // Required for limit/stop
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { TradeModal } from "@/components/TradeModal";
 
 type Snapshot = Record<string, { price: number; change_24h: number; updated_at: string }>;
 type Holding = { symbol: string; quantity: number; average_buy_price: number };
@@ -25,6 +26,11 @@ export default function HoldingsPage() {
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState<"all" | "gainers" | "losers">("all");
   const [sort, setSort] = useState<"value" | "pnl">("value");
+  const [tradeConfig, setTradeConfig] = useState<{ open: boolean; symbol: string; side: "buy" | "sell" }>({
+    open: false,
+    symbol: "",
+    side: "buy",
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -50,7 +56,7 @@ export default function HoldingsPage() {
       };
       socket.onmessage = (e) => {
         const payload = JSON.parse(e.data) as Snapshot;
-        setPrices(payload);
+        setPrices((prev) => ({ ...prev, ...payload }));
       };
     };
     connect();
@@ -73,6 +79,80 @@ export default function HoldingsPage() {
     };
     void load();
   }, [token]);
+
+  // Fetch missing prices for symbols not in WebSocket
+  useEffect(() => {
+    const fetchMissingPrices = async () => {
+      if (!portfolio?.holdings) return;
+
+      const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_KEY;
+      const cryptoMap: Record<string, string> = {
+        'BTC': 'bitcoin', 'ETH': 'ethereum', 'XRP': 'ripple',
+        'ADA': 'cardano', 'SOL': 'solana', 'DOGE': 'dogecoin',
+        'META': '', 'AMD': '', 'NVDA': '', 'GOOGL': '', 'MSFT': '',
+        'AAPL': '', 'TSLA': '', 'AMZN': '', 'KOLD': ''
+      };
+
+      const missingSymbols = portfolio.holdings
+        .filter(h => !prices[h.symbol] || prices[h.symbol].price === 0)
+        .map(h => h.symbol);
+
+      if (missingSymbols.length === 0) return;
+
+      const newPrices: Snapshot = { ...prices };
+
+      for (const sym of missingSymbols) {
+        try {
+          // Try Finnhub for stocks
+          if (finnhubKey && !cryptoMap[sym]) {
+            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.c > 0) {
+                newPrices[sym] = { price: data.c, change_24h: data.dp || 0, updated_at: new Date().toISOString() };
+                continue;
+              }
+            }
+          }
+
+          // Try CoinGecko for crypto
+          const cgId = cryptoMap[sym];
+          if (cgId) {
+            const cgRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`);
+            if (cgRes.ok) {
+              const cgData = await cgRes.json();
+              if (cgData[cgId]?.usd) {
+                newPrices[sym] = {
+                  price: cgData[cgId].usd,
+                  change_24h: cgData[cgId].usd_24h_change || 0,
+                  updated_at: new Date().toISOString()
+                };
+              }
+            }
+          }
+
+          // For stocks in cryptoMap that have empty string (not crypto)
+          if (cryptoMap[sym] === '' && finnhubKey) {
+            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.c > 0) {
+                newPrices[sym] = { price: data.c, change_24h: data.dp || 0, updated_at: new Date().toISOString() };
+              }
+            }
+          }
+        } catch {
+          // Ignore errors for individual symbols
+        }
+      }
+
+      setPrices(newPrices);
+    };
+
+    // Run after a small delay to let WebSocket populate first
+    const timer = setTimeout(fetchMissingPrices, 2000);
+    return () => clearTimeout(timer);
+  }, [portfolio?.holdings, prices]);
 
   const rows = useMemo<Enriched[]>(() => {
     const holdings = portfolio?.holdings ?? [];
@@ -127,9 +207,8 @@ export default function HoldingsPage() {
 
         <div className="mb-4 flex items-center gap-2 text-xs text-slate-300">
           <span
-            className={`h-2 w-2 rounded-full ${
-              status === "open" ? "bg-emerald-400" : status === "connecting" ? "bg-amber-400" : "bg-rose-400"
-            }`}
+            className={`h-2 w-2 rounded-full ${status === "open" ? "bg-emerald-400" : status === "connecting" ? "bg-amber-400" : "bg-rose-400"
+              }`}
           />
           {status === "open" ? "Live" : status}
         </div>
@@ -170,19 +249,20 @@ export default function HoldingsPage() {
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/40">
-          <div className="grid grid-cols-6 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-300">
+          <div className="grid grid-cols-7 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-300">
             <span>Symbol</span>
             <span>Qty</span>
             <span>Avg</span>
             <span>Last</span>
             <span>Value</span>
             <span>PnL</span>
+            <span className="text-right">Action</span>
           </div>
           <div className="divide-y divide-white/5">
             {filtered.map((r) => (
               <div
                 key={r.symbol}
-                className="grid grid-cols-6 items-center px-4 py-3 text-sm text-slate-100"
+                className="grid grid-cols-7 items-center px-4 py-3 text-sm text-slate-100"
               >
                 <span className="font-semibold">{r.symbol}</span>
                 <span>{r.quantity}</span>
@@ -192,6 +272,20 @@ export default function HoldingsPage() {
                 <span className={changeColor(r.pnl)}>
                   ${r.pnl.toFixed(2)} ({r.pnlPct.toFixed(2)}%)
                 </span>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setTradeConfig({ open: true, symbol: r.symbol, side: "buy" })}
+                    className="rounded bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20"
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => setTradeConfig({ open: true, symbol: r.symbol, side: "sell" })}
+                    className="rounded bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-400 hover:bg-rose-500/20"
+                  >
+                    Sell
+                  </button>
+                </div>
               </div>
             ))}
             {!rows.length && (
@@ -201,6 +295,13 @@ export default function HoldingsPage() {
             )}
           </div>
         </div>
+
+        <TradeModal
+          isOpen={tradeConfig.open}
+          onClose={() => setTradeConfig((prev) => ({ ...prev, open: false }))}
+          initialSymbol={tradeConfig.symbol}
+          initialSide={tradeConfig.side}
+        />
       </div>
     </main>
   );

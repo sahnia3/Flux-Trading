@@ -115,52 +115,35 @@ export default async function MarketsPage() {
     };
   });
 
-  // 2. US Stocks
-  const stockSymbolsMap = [
-    { s: "NVDA", f: { price: 880.50, change: 2.5 } },
-    { s: "AAPL", f: { price: 175.30, change: -0.5 } },
-    { s: "MSFT", f: { price: 420.10, change: 1.1 } },
-    { s: "TSLA", f: { price: 170.20, change: -1.2 } },
-    { s: "AMD", f: { price: 160.40, change: 3.2 } },
-    { s: "AMZN", f: { price: 180.50, change: 0.8 } },
-    { s: "GOOGL", f: { price: 155.20, change: -0.2 } },
-    { s: "META", f: { price: 490.30, change: 1.5 } },
-    { s: "PLTR", f: { price: 23.50, change: 4.1 } },
-    { s: "COIN", f: { price: 245.80, change: -2.3 } }
-  ];
+  // 2. US Stocks (Using Finnhub as PRIMARY source for accuracy)
+  const stockSymbols = ["NVDA", "AAPL", "MSFT", "TSLA", "AMD", "AMZN", "GOOGL", "META", "PLTR", "COIN"];
 
-  const stockSymbols = stockSymbolsMap.map(x => x.s);
-  const alpacaStocks = await getMultiBars(stockSymbols);
-
-  const usStocks = await Promise.all(stockSymbolsMap.map(async (item) => {
+  const usStocks = await Promise.all(stockSymbols.map(async (symbol) => {
     let price = 0;
     let change = 0;
     let volume = "—";
     let marketCap = "—";
-    let logo = LOGO_MAP[item.s] || "";
+    let logo = LOGO_MAP[symbol] || "";
+    let name = symbol;
 
-    // 1. Fetch live price/volume (Alpaca)
-    const aData = alpacaStocks[item.s];
-    if (aData) {
-      price = aData.c;
-      // Calc change vs Open (approx)
-      if (aData.o) change = ((price - aData.o) / aData.o) * 100;
-      volume = aData.v.toLocaleString();
-    } else {
-      // Fallback to Finnhub/Mock
-      const quote = await fetchPrice(item.s, item.f);
-      price = quote.price;
-      change = quote.change;
-      // Generate random realistic volume if "—" (20M - 100M)
-      volume = Math.floor(Math.random() * (100000000 - 20000000) + 20000000).toLocaleString();
+    // 1. Fetch live price from Finnhub (Primary)
+    const quote = await fetchFinnhubQuote(symbol);
+    if (quote && quote.c > 0) {
+      price = quote.c;
+      // Calculate change: (current - previous close) / previous close * 100
+      if (quote.pc > 0) {
+        change = ((quote.c - quote.pc) / quote.pc) * 100;
+      } else if (quote.dp !== undefined) {
+        change = quote.dp;
+      }
     }
 
-    // 2. Fetch Profile (Logo/MarketCap)
-    const profile = await fetchStockProfile(item.s);
+    // 2. Fetch Profile (Logo/MarketCap/Name)
+    const profile = await fetchStockProfile(symbol);
     if (profile) {
+      if (profile.name) name = profile.name;
       if (profile.logo) logo = profile.logo;
       if (profile.marketCapitalization) {
-        // Finnhub returns Market Cap in Millions
         const mc = profile.marketCapitalization;
         if (mc >= 1000000) {
           marketCap = `$${(mc / 1000000).toFixed(1)}T`;
@@ -173,8 +156,8 @@ export default async function MarketsPage() {
     }
 
     return {
-      symbol: item.s,
-      name: profile?.name || item.s,
+      symbol: symbol,
+      name: name,
       price: price,
       change: change,
       volume: volume,

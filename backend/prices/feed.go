@@ -56,15 +56,51 @@ func NewFeed(cfg FeedConfig) *Feed {
 	f := &Feed{
 		client: &http.Client{Timeout: 10 * time.Second},
 		idToSymbol: map[string]string{
-			"bitcoin":       "BTC",
-			"ethereum":      "ETH",
-			"solana":        "SOL",
-			"binancecoin":   "BNB",
-			"avalanche-2":   "AVAX",
-			"ripple":        "XRP",
-			"cardano":       "ADA",
-			"polkadot":      "DOT",
-			"polygon":       "MATIC",
+			"bitcoin":            "BTC",
+			"ethereum":           "ETH",
+			"tether":             "USDT",
+			"binancecoin":        "BNB",
+			"solana":             "SOL",
+			"ripple":             "XRP",
+			"usd-coin":           "USDC",
+			"cardano":            "ADA",
+			"avalanche-2":        "AVAX",
+			"dogecoin":           "DOGE",
+			"tron":               "TRX",
+			"polkadot":           "DOT",
+			"chainlink":          "LINK",
+			"matic-network":      "MATIC",
+			"the-open-network":   "TON",
+			"shiba-inu":          "SHIB",
+			"litecoin":           "LTC",
+			"bitcoin-cash":       "BCH",
+			"near":               "NEAR",
+			"uniswap":            "UNI",
+			"leo-token":          "LEO",
+			"dai":                "DAI",
+			"aptos":              "APT",
+			"cosmos":             "ATOM",
+			"ethereum-classic":   "ETC",
+			"monero":             "XMR",
+			"stellar":            "XLM",
+			"blockstack":         "STX",
+			"filecoin":           "FIL",
+			"hedera-hashgraph":   "HBAR",
+			"immutable-x":        "IMX",
+			"crypto-com-chain":   "CRO",
+			"vechain":            "VET",
+			"maker":              "MKR",
+			"render-token":       "RNDR",
+			"the-graph":          "GRT",
+			"injective-protocol": "INJ",
+			"optimism":           "OP",
+			"aave":               "AAVE",
+			"theta-token":        "THETA",
+			"algorand":           "ALGO",
+			"thorchain":          "RUNE",
+			"fantom":             "FTM",
+			"the-sandbox":        "SAND",
+			"decentraland":       "MANA",
 		},
 		prices:         make(map[string]Ticker),
 		subscribers:    make(map[*websocket.Conn]struct{}),
@@ -317,4 +353,100 @@ func (f *Feed) closeAll() {
 	}
 	f.subscribers = make(map[*websocket.Conn]struct{})
 	f.mu.Unlock()
+}
+
+// GetPrice returns the latest price. If not in cache, validation attempts a live fetch.
+func (f *Feed) GetPrice(symbol string) (float64, error) {
+	symbol = strings.ToUpper(symbol)
+	// Normalize Crypto/TradingView symbols: "BINANCE:MKRUSDT" -> "MKRUSDT" -> "MKR"
+	if idx := strings.LastIndex(symbol, ":"); idx != -1 {
+		symbol = symbol[idx+1:]
+	}
+	symbol = strings.TrimSuffix(symbol, "USDT")
+	symbol = strings.TrimSuffix(symbol, "USD")
+
+	f.mu.RLock()
+	ticker, ok := f.prices[symbol]
+	f.mu.RUnlock()
+
+	if ok && ticker.Price > 0 {
+		return ticker.Price, nil
+	}
+
+	// Not in cache?
+	// 1. Try Crypto fallback (CoinGecko) - handling case where background loop hasn't populated yet
+	var cryptoID string
+	for id, s := range f.idToSymbol {
+		if s == symbol {
+			cryptoID = id
+			break
+		}
+	}
+	if cryptoID != "" {
+		url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd", cryptoID)
+		resp, err := f.client.Get(url)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == 200 {
+				var payload map[string]struct {
+					USD float64 `json:"usd"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil {
+					if val, ok := payload[cryptoID]; ok && val.USD > 0 {
+						return val.USD, nil
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Try Stocks fallback (Finnhub)
+	// This supports ABT, commodities, forex if Finnhub covers them.
+	if f.finnhubAPIKey != "" {
+		req, err := http.NewRequest("GET", "https://finnhub.io/api/v1/quote", nil)
+		if err != nil {
+			return 0, err
+		}
+		q := req.URL.Query()
+		q.Set("symbol", symbol)
+		q.Set("token", f.finnhubAPIKey)
+		req.URL.RawQuery = q.Encode()
+
+		resp, err := f.client.Do(req)
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 200 {
+			var payload struct {
+				Current float64 `json:"c"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil && payload.Current > 0 {
+				// Cache it for a short while? For now, just return it.
+				// We could add it to f.prices so it gets updated in the loop,
+				// but let's just return it for validation pass.
+				return payload.Current, nil
+			}
+		}
+	}
+
+	// Try CoinGecko for crypto if not in our initial list?
+	// The user wants strict crypto list or expanded?
+	// For now, if it's not in cache and finnhub failed, it's invalid.
+	return 0, fmt.Errorf("price unavailable for %s", symbol)
+}
+
+// IsSupported checks if the symbol is valid.
+// We now defer to GetPrice validation: if we can get a price, it's supported.
+func (f *Feed) IsSupported(symbol string) bool {
+	// If it's in our known crypto list, it's supported.
+	for _, s := range f.idToSymbol {
+		if s == strings.ToUpper(symbol) {
+			return true
+		}
+	}
+	// For stocks/others, we assume true and let GetPrice fail if invalid.
+	// This allows buying ANY valid US Stock/ETF/Forex that Finnhub supports.
+	return true
 }
