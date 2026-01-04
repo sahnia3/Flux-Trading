@@ -508,7 +508,12 @@ export default function AssetPage() {
                   <p className="text-xs text-text-dim uppercase">Market Cap</p>
                   <p className="text-xl font-mono text-text-main">
                     {typeof company.profile?.marketCapitalization === "number"
-                      ? formatCurrencyCompact((company.profile.marketCapitalization as number) * 1000000, company.profile?.currency)
+                      ? formatCurrencyCompact(
+                        company.profile.marketCapitalization > 1000000000
+                          ? company.profile.marketCapitalization // Already raw
+                          : company.profile.marketCapitalization * 1000000, // In millions
+                        company.profile?.currency
+                      )
                       : "—"}
                   </p>
                 </div>
