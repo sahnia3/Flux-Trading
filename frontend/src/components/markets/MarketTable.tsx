@@ -13,6 +13,7 @@ interface RowData {
     marketCap: string;
     type?: string;
     logo?: string;
+    currency?: string;
 }
 
 interface MarketTableProps {
