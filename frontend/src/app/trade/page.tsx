@@ -156,7 +156,10 @@ export default function TradePage() {
   };
 
   const formattedPrices = useMemo(
-    () => Object.values(prices).sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    () =>
+      Object.entries(prices)
+        .map(([symbol, data]) => ({ symbol, ...data }))
+        .sort((a, b) => a.symbol.localeCompare(b.symbol)),
     [prices],
   );
 
@@ -227,7 +230,7 @@ export default function TradePage() {
                   }}
                 />
                 <div className="space-y-1">
-                  {(symbolResults.length > 0 ? symbolResults : formattedPrices.slice(0, 8)).map(
+                  {(symbolResults.length > 0 ? symbolResults : formattedPrices.slice(0, 8) as any[]).map(
                     (s) => (
                       <button
                         key={s.symbol}
@@ -237,11 +240,10 @@ export default function TradePage() {
                           setSymbolQuery(s.symbol);
                           setSymbolResults([]);
                         }}
-                        className={`flex w-full items-center justify-between rounded-lg border border-white/5 px-3 py-2 text-left text-sm transition hover:border-emerald-400/60 ${
-                          symbol === s.symbol
-                            ? "bg-emerald-500/15 text-emerald-100"
-                            : "bg-slate-900/60 text-slate-100"
-                        }`}
+                        className={`flex w-full items-center justify-between rounded-lg border border-white/5 px-3 py-2 text-left text-sm transition hover:border-emerald-400/60 ${symbol === s.symbol
+                          ? "bg-emerald-500/15 text-emerald-100"
+                          : "bg-slate-900/60 text-slate-100"
+                          }`}
                       >
                         <span className="font-semibold">{s.symbol}</span>
                         {s.description && (
