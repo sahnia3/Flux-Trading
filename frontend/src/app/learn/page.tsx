@@ -6,7 +6,8 @@ import {
   MarketVolumeChart,
   PsychologyRadarChart,
 } from "@/components/learn/LearningCharts";
-import { learnModules } from "@/data/learnModules";
+import { learnModules, finalAssessment } from "@/data/learnModules";
+import { FluxAILab } from "@/components/learn/FluxAILab";
 import { createChart, ColorType } from "lightweight-charts";
 
 // --- Candlestick Chart Component (Visual Lab) ---
@@ -327,6 +328,27 @@ export default function LearnPage() {
               </div>
             </div>
 
+            {/* Visual 4: Flux AI Lab */}
+            <div className="pt-10 border-t border-white/5">
+              <FluxAILab />
+            </div>
+
+          </div>
+        </div>
+
+        {/* --- FINAL ASSESSMENT --- */}
+        <div className="mt-20 pt-20 border-t border-slate-800 pb-32">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 md:p-12 border border-slate-700 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+
+            <div className="relative z-10">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Final Assessment</h2>
+                <p className="text-slate-400 max-w-xl mx-auto">Verify your knowledge before entering the Flux live markets. Passing score: 80%.</p>
+              </div>
+
+              <QuizSection moduleId="final" quiz={finalAssessment} />
+            </div>
           </div>
         </div>
 

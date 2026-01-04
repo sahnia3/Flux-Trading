@@ -29,18 +29,18 @@ export const learnModules: LearnModule[] = [
       {
         heading: "1.1 The Spectrum of Asset Classes",
         bullets: [
-          "Equities (Stocks): Engine of corporate ownership. Traded on centralized exchanges (NYSE, NASDAQ) with rigid hours (9:30 AM - 4:00 PM EST). Subject to 'Gap Risk' due to overnight news.",
-          "Forex (FX): The largest, most liquid market ($6T+ daily). Decentralized (OTC) and operates 24/5. No gap risk during the week.",
-          "Cryptocurrency: The frontier of digital value. Decentralized (DEX) & Centralized (CEX). Operates 24/7 with extreme volatility (5-20% daily swings)."
+          "Equities (Stocks): The Engine of Corporate Ownership. Primarily traded on centralized exchanges (NYSE, NASDAQ) with rigid operational hours (9:30 AM - 4:00 PM EST). This temporal constraint creates a unique risk factor known as 'gapping'—where price jumps overnight due to news.",
+          "Forex (FX): The Pulse of Global Economics. The largest market in the world ($6T+ daily). Unlike equities, it is decentralized and operates 24/5. Traders profit from the exchange rate between currency pairs like EUR/USD.",
+          "Cryptocurrency: The Frontier of Digital Value. Operates 24/7 on a hybrid infrastructure of Centralized (CEX) and Decentralized (DEX) exchanges. Known for extreme volatility (5-20% daily swings), offering high risk and high reward."
         ]
       },
       {
         heading: "1.2 Market Participants: The Ecological Hierarchy",
         bullets: [
-          "Institutional Investors (Smart Money): Hedge funds, banks. They control majority capital and move markets. They engage in accumulation and distribution.",
-          "Market Makers: Provide liquidity by quoting buy/sell prices. They profit from the 'spread', not direction.",
-          "High-Frequency Traders (HFTs): Use algos to execute in microseconds, arbitraging tiny inefficiencies.",
-          "Retail Traders: You. Info disadvantage but agility advantage (instant entry/exit without slippage)."
+          "Institutional Investors (Smart Money): Hedge funds and banks control the vast majority of capital. They engage in accumulation and distribution over weeks. Recognising their footprint is key.",
+          "Market Makers: Specialized firms that provide liquidity by quoting both buy and sell prices. They profit from the 'spread' (difference between Bid and Ask), ensuring you can always execute a trade.",
+          "High-Frequency Traders (HFTs): Algorithms that execute in microseconds to arbitrage inefficiencies. They provide liquidity but can increase volatility.",
+          "Retail Traders: You. While at an informational disadvantage, retail traders possess agility—entering and exiting positions instantly without slippage."
         ]
       }
     ],
@@ -452,5 +452,38 @@ export const learnModules: LearnModule[] = [
       "Backtest the 'Trend Pullback' strategy on a demo account.",
       "Complete the Flux Trading Academy Final Assessment."
     ]
+  }
+];
+
+export const finalAssessment: QuizQuestion[] = [
+  {
+    question: "Which asset class typically has the highest daily trading volume?",
+    options: ["Crypto ($50B)", "Forex ($6.6T)", "Stocks ($84B)", "Commodities"],
+    answer: 1,
+    explanation: "Forex is by far the largest market, providing immense liquidity."
+  },
+  {
+    question: "In a candlestick chart, what does the 'wick' represent?",
+    options: ["The opening price only", "The highest and lowest prices reached", "The closing price", "Volume"],
+    answer: 1,
+    explanation: "The wicks (shadows) show the extreme price range (High and Low) outside the Open/Close body."
+  },
+  {
+    question: "What is the recommended maximum risk per trade for beginners?",
+    options: ["10%", "5%", "1%", "As much as you feel confident with"],
+    answer: 2,
+    explanation: "The 1% rule ensures you can survive a losing streak without blowing your account."
+  },
+  {
+    question: "A 'Bull Flag' pattern typically signals:",
+    options: ["A Reversal Down", "Continuation of the Uptrend", "Indecision", "Market Crash"],
+    answer: 1,
+    explanation: "A Bull Flag is a pause (consolidation) in an uptrend before the price continues higher."
+  },
+  {
+    question: "Which indicator is best for identifying 'Overbought' conditions?",
+    options: ["Moving Average", "RSI (Relative Strength Index)", "Volume", "Candlesticks"],
+    answer: 1,
+    explanation: "RSI > 70 generally indicates an asset is potentially overbought."
   }
 ];
